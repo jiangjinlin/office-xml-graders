@@ -487,7 +487,7 @@ def main():
     if len(sys.argv) > 1: docx = sys.argv[1]
     else:
         base = os.path.dirname(os.path.abspath(__file__))
-        d = os.path.join(base, '..\\..\\2022年准易：Word 2010 操作题--素材\\9\\1结果.docx')
+        d = os.path.join(base, '..\\..\\Word 2010 操作题题库\\9\\1结果.docx')
         if os.path.exists(d): docx = d
     if not docx:
         print('请指定文件路径'); return

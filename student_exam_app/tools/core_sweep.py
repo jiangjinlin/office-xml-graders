@@ -22,7 +22,7 @@ def main():
     bad = 0
     for label, cls, answer, summary in CASES:
         for qid in range(1, 11):
-            path = os.path.join(ROOT, '2022年准易：%s 2010 操作题--素材' % label, str(qid), answer)
+            path = os.path.join(ROOT, '2022年：%s 2010 操作题--素材' % label, str(qid), answer)
             if not os.path.exists(path):
                 print('%-6s %-3d 缺少答案文件' % (label, qid))
                 continue

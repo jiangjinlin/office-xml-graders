@@ -288,4 +288,4 @@ class ExcelGrader10:
 if __name__ == '__main__':
     sys.exit(run(ExcelGrader10, default=os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-        '2022年准易：Excel 2010 操作题--素材', '10', '1结果.xlsx')))
+        'Excel 2010 操作题题库', '10', '1结果.xlsx')))

@@ -914,7 +914,7 @@ def main():
     sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
     if len(sys.argv) < 2:
         # 默认测试标准答案
-        base = 'C:/Users/23000/Desktop/2022年准易：Word 2010 操作题--素材/2022年准易：Word 2010 操作题--素材/7'
+        base = 'C:/Users/23000/Desktop/Word 2010 操作题题库/Word 2010 操作题题库/7'
         path = os.path.join(base, '1结果.docx')
     else:
         path = sys.argv[1]

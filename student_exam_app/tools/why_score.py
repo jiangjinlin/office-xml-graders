@@ -15,7 +15,7 @@ MATERIAL = {'excel': '2素材.xlsx', 'word': '2素材.docx', 'ppt': '2素材.ppt
 
 def main():
     subject, qid = sys.argv[1], sys.argv[2]
-    path = os.path.join(ROOT, '2022年准易：%s 2010 操作题--素材' % SUBJECT_DIR[subject],
+    path = os.path.join(ROOT, '2022年：%s 2010 操作题--素材' % SUBJECT_DIR[subject],
                         qid, MATERIAL[subject])
     env = os.environ.copy()
     env['PYTHONIOENCODING'] = 'utf-8'

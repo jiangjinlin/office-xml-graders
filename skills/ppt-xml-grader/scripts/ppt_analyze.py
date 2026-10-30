@@ -16,7 +16,7 @@ PKG = 'http://schemas.openxmlformats.org/package/2006/relationships'
 
 def analyze(folder_num):
     base = Path(os.path.dirname(__file__))
-    mat_dir = base.parent.parent.parent / '2022年准易：Ppt 2010 操作题--素材' / str(folder_num)
+    mat_dir = base.parent.parent.parent / 'PPT 2010 操作题题库' / str(folder_num)
     ans_path = mat_dir / '1结果.pptx'
     src_path = mat_dir / '2素材.pptx'
 

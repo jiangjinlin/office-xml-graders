@@ -11,7 +11,7 @@ ROOT = os.path.dirname(BASE)
 
 
 def excel():
-    path = os.path.join(ROOT, '2022年准易：Excel 2010 操作题--素材', '1', '1结果.xlsx')
+    path = os.path.join(ROOT, 'Excel 2010 操作题题库', '1', '1结果.xlsx')
     with ExcelBook(path) as book:
         print('[Excel] sheets=%s' % [(s.name, s.part) for s in book.sheets])
         print('  strings=%d styles.fonts=%d xfs=%d' % (
@@ -32,7 +32,7 @@ def excel():
 
 
 def word():
-    path = os.path.join(ROOT, '2022年准易：Word 2010 操作题--素材', '2', '1结果.docx')
+    path = os.path.join(ROOT, 'Word 2010 操作题题库', '2', '1结果.docx')
     with WordDoc(path) as doc:
         print('[Word] 段落=%d 表格=%d 节=%d' % (len(doc.paragraphs), len(doc.tables), len(doc.sections)))
         for p in doc.paragraphs[:4]:
@@ -47,7 +47,7 @@ def word():
 
 
 def ppt():
-    path = os.path.join(ROOT, '2022年准易：Ppt 2010 操作题--素材', '5', '1结果.pptx')
+    path = os.path.join(ROOT, 'PPT 2010 操作题题库', '5', '1结果.pptx')
     with PptDeck(path) as deck:
         print('[PPT] 幻灯片=%d 尺寸=%.1fx%.1fcm 主题=%s 放映=%s' % (
             len(deck.slides), deck.slide_size[0], deck.slide_size[1],

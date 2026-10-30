@@ -153,4 +153,4 @@ class PptGrader9:
 if __name__ == '__main__':
     sys.exit(run(PptGrader9, default=os.path.join(
         os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))),
-        '2022年准易：Ppt 2010 操作题--素材', '9', '1结果.pptx')))
+        'PPT 2010 操作题题库', '9', '1结果.pptx')))

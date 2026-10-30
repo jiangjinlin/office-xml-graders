@@ -34,7 +34,7 @@ def GT(elem):
 
 def analyze(folder_num):
     base = Path(os.path.dirname(__file__))
-    mat_dir = base.parent.parent.parent / '2022年准易：Word 2010 操作题--素材' / str(folder_num)
+    mat_dir = base.parent.parent.parent / 'Word 2010 操作题题库' / str(folder_num)
     ans_path = mat_dir / '1结果.docx'
 
     if not ans_path.exists():

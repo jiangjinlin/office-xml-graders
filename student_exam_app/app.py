@@ -44,6 +44,26 @@ app.json.ensure_ascii = False
 
 SLOTS = threading.BoundedSemaphore(MAX_PARALLEL)
 
+# 单 IP 判分频率限制（每分钟），防脚本刷；nginx 层也有一道
+RATE_LIMIT_PER_MIN = int(os.environ.get('EXAM_RATE_PER_MIN', '60'))
+RATE_LOCK = threading.Lock()
+RATE_BUCKETS = {}
+
+
+def rate_ok(ip):
+    now = time.time()
+    with RATE_LOCK:
+        bucket = [t for t in RATE_BUCKETS.get(ip, []) if now - t < 60]
+        if len(bucket) >= RATE_LIMIT_PER_MIN:
+            RATE_BUCKETS[ip] = bucket
+            return False
+        bucket.append(now)
+        RATE_BUCKETS[ip] = bucket
+        if len(RATE_BUCKETS) > 5000:
+            for key in [k for k, v in RATE_BUCKETS.items() if not v]:
+                RATE_BUCKETS.pop(key, None)
+    return True
+
 W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
 
 
@@ -185,6 +205,17 @@ def valid_qid(qid):
     return bool(re.fullmatch(r'\d{1,2}', str(qid)))
 
 
+@app.after_request
+def security_headers(resp):
+    resp.headers.setdefault('X-Content-Type-Options', 'nosniff')
+    resp.headers.setdefault('X-Frame-Options', 'SAMEORIGIN')
+    resp.headers.setdefault('Referrer-Policy', 'same-origin')
+    resp.headers.setdefault('X-Permitted-Cross-Domain-Policies', 'none')
+    if resp.mimetype in ('application/json', 'text/html'):
+        resp.headers.setdefault('Cache-Control', 'no-store')
+    return resp
+
+
 @app.route('/')
 def index():
     return render_template('index.html')
@@ -203,7 +234,6 @@ def health():
         'status': 'ok',
         'graders': len(graders),
         'questions': questions,
-        'python': os.path.basename(PYTHON),
         'max_upload_mb': MAX_UPLOAD_MB,
         'max_parallel': MAX_PARALLEL,
         'upload_ttl_hours': UPLOAD_TTL_HOURS,
@@ -389,6 +419,10 @@ def grade(subject, qid):
     if not valid_subject(subject) or not valid_qid(qid):
         return jsonify({'error': '参数不合法'}), 400
 
+    client_ip = (request.headers.get('X-Real-IP') or request.remote_addr or '').strip()
+    if not rate_ok(client_ip):
+        return jsonify({'error': '操作太快了，休息一下再试'}), 429
+
     upload = request.files.get('file')
     if upload is None or not upload.filename:
         return jsonify({'error': '未上传文件'}), 400
@@ -425,9 +459,9 @@ def grade(subject, qid):
             'items': items,
             'details': details,
         })
-    except Exception as exc:
+    except Exception:
         app.logger.exception('grade failed')
-        return jsonify({'error': '服务器错误: %s' % exc}), 500
+        return jsonify({'error': '服务器开小差了，请稍后重试或联系老师'}), 500
     finally:
         SLOTS.release()
         try:

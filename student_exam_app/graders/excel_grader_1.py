@@ -306,7 +306,7 @@ def main():
         try: sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
         except: pass
 
-    base = 'C:/Users/23000/Desktop/2022年准易：Word 2010 操作题--素材/2022年准易：Excel 2010 操作题--素材/1'
+    base = 'C:/Users/23000/Desktop/Word 2010 操作题题库/Excel 2010 操作题题库/1'
     path = sys.argv[1] if len(sys.argv) > 1 else os.path.join(base, '1结果.xlsx')
     print(f'评分: {os.path.basename(path)}')
     print('=' * 50)

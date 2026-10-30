@@ -15,7 +15,7 @@ S = 'http://schemas.openxmlformats.org/spreadsheetml/2006/main'
 
 def analyze(folder_num):
     base = Path(os.path.dirname(__file__))
-    mat_dir = base.parent.parent.parent / '2022年准易：Excel 2010 操作题--素材' / str(folder_num)
+    mat_dir = base.parent.parent.parent / 'Excel 2010 操作题题库' / str(folder_num)
     src_path = mat_dir / '2素材.xlsx'
     ans_path = mat_dir / '1结果.xlsx'
 
