@@ -66,10 +66,11 @@ class PptGrader7:
             got += 4; notes.append('标题 OK')
         else:
             notes.append('标题=%r' % title_text(self.deck, s))
-        if self.deck.image_targets(s):
-            got += 3; notes.append('图片存在 OK')
+        sp = [int(v) for v in line_spacing(s)]
+        if sp:
+            got += 3; notes.append('已设置行距 %s%% OK' % '、'.join(str(round(v / 1000)) for v in sp))
         else:
-            notes.append('没有图片')
+            notes.append('未设置行距（应为 1 倍，即 spcPct=100000）')
         return (2, '第2张版式', got, 12, notes)
 
     # 3. 第3张 空白+艺术字 (15)

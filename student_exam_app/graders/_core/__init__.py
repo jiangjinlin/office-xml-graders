@@ -10,13 +10,15 @@ from .pptcheck import (presets as ppt_presets, has_preset, filters as ppt_filter
 from .report import Report, run, setup_stdout
 from .checks import (norm_formula, formula_has, func_name, style_name_is,
                      as_float, close, font_color, fill_color, has_border,
-                     border_styles, ref_range_covers, norm_ref, has_field, field_name)
+                     border_styles, ref_range_covers, norm_ref, has_field, field_name,
+                     mail_merge_info, merge_fields, pictures, vml_shapes)
 
 __all__ = ['Package', 'ExcelBook', 'Styles', 'WordDoc', 'extract_word_parts',
            'PptDeck', 'slide_no', 'Report', 'run', 'setup_stdout',
            'norm_formula', 'formula_has', 'func_name', 'style_name_is',
            'as_float', 'close', 'font_color', 'fill_color', 'has_border',
            'border_styles', 'ref_range_covers', 'norm_ref', 'has_field', 'field_name',
+           'mail_merge_info', 'merge_fields', 'pictures', 'vml_shapes',
            'ppt_presets', 'has_preset', 'ppt_filters', 'transition_types',
            'transition_attrs', 'ppt_actions', 'shape_names', 'hlink_ids',
            'has_gradfill', 'auto_number', 'line_spacing', 'layout_short',

@@ -8,6 +8,16 @@ agent_created: true
 
 通过直接解析.docx文件内部的Open XML结构，精准检测Word文档格式，实现操作题自动评分。
 
+## 权威参考（查结构先看这里）
+
+- 规范：ECMA-376 Part 1 §17（WordprocessingML）。页眉页脚 §17.6.5、节属性 §17.6.17、
+  页码域 §17.16.5、表格 §17.4、编号 §17.9。
+- MS 文档：https://learn.microsoft.com/zh-cn/office/open-xml/word/overview
+  SDK 类名即元素名：`SectionProperties`=`w:sectPr`、`FieldCode`=`w:instrText`。
+- ooxml.org：https://ooxml.org/wordml/ 有 210 个元素的父/子/属性/条款号，查结构最顺手；
+  但它是前端渲染的，脚本抓正文要带渲染，`urllib` 只能拿到空壳。
+- 本地速查表：`student_exam_app/tools/reference/OOXML-速查.md`。
+
 ## 概述
 
 本技能通过解析.docx文件内部的Open XML结构，精准检测Word文档格式，实现操作题自动评分。
@@ -15,6 +25,75 @@ agent_created: true
 **核心工作流：** Word比较文档生成修订标记 → 解析修订XML → 对照标准答案 → 生成评分代码
 
 **核心原则：所有检测参数必须从标准答案XML中提取精确值，用 `==` 比较，不用 `in` 模糊匹配。**
+
+## 考点覆盖表（按题库 10 套实测，缺什么一眼看到）
+
+| 考点 | XML 证据 | 判定要点 | 已有实现 |
+| --- | --- | --- | --- |
+| 邮件合并 | `settings.xml` 的 `w:mailMerge` + `w:mainDocumentType@val="formLetters"` + `w:connectString`；正文 `w:instrText` 里的 `MERGEFIELD 姓名` | 三件齐才算：合并开关 + 主文档类型 + 合并域。数据源路径里应出现目标表名（不同学生路径不同，只比文件名） | `_core.mail_merge_info` / `merge_fields`，word10 |
+| 图片尺寸 | `wp:extent@cx/@cy`，单位 EMU，1 厘米 = 360000 | 7 厘米 = 2520000；只查 `w:drawing` 存在不够，必须比 extent | word2/4/6/7/9 |
+| 图片环绕 | `wp:anchor` 下的 `wp:wrapSquare` / `wrapTopAndBottom` / `wrapTight` / `wrapThrough` / `wrapNone` | `wp:inline` = 嵌入型，没有 wrap 子元素；"上下型"是 `wrapTopAndBottom`，"四周型"是 `wrapSquare` | word2 已按此判 |
+| 图片裁剪/亮度 | `a:srcRect@l/t/r/b`、`a:lum@bright/@contrast` | 裁剪比例是千分比（`l="25000"` = 裁掉 25%） | 题库未考，新题按此写 |
+| 旧式图片(VML) | `w:pict > v:shape > v:imagedata@r:id` | 剪贴画、老模板图走 VML，`w:drawing` 里找不到，必须两路都查 | `_core.pictures` 已兼容 |
+| 艺术字 | `w:pict > v:shape` 里带 `v:textpath@string`，或 DrawingML 的 `a:prstTxWarp` | 文字内容在 `textpath/@string`，不在 `w:t` 里 | word2、word7 |
+| 文本框 | `w:txbxContent`；竖排看 `w:textDirection@val="tbRlV"` | 文本框里的字用 `gt()` 也能取到，但样式要进 `txbxContent` 里查 | word2 |
+| 形状/椭圆标注/箭头 | VML `v:shape@type="#_x0000_t9"`（椭圆）、`t13`（箭头）；或 `a:prstGeom@prst="ellipse"/"rightArrow"` | 改颜色看 `v:fill@color` 或 `a:solidFill` | word7 |
+| SmartArt | `word/diagrams/data*.xml` + `dgm:relIds` | 内容在 diagrams 部件里，document.xml 只有引用；判文字要读 data 部件 | word4 |
+| 公式 | `m:oMath`（新版）或域代码 `= ...`（老版公式） | `oMath` 在 `w:p` 里，命名空间是 math，不是 w | word7 用域判 |
+| 题注 | `w:fldSimple@w:instr=" SEQ 图 \\* ARABIC "` 或段落里的 `Caption` 样式 | 只查"图 1"文字会出现假阳性 | word1/7/8 |
+| 水印 | 页眉里的 `v:shape@id="PowerPlusWaterMarkObject..."` + `v:textpath@string` | 文字水印在页眉部件；`w:color` 和 `rotation:-45` 控制半透明/角度 | word1/2/4/5/6/10 |
+| 脚注尾注 | `w:footnoteReference@w:id` + `footnotes.xml` 的 `w:footnote` | 编号在 `w:footnote@w:id`，正文只留引用 | word1/5/6/8/9 |
+| 首字下沉 | `w:framePr@w:dropCap="drop"` + `w:lines` | 题库未考，新题按此写 | 待补 |
+| 分栏 | `w:cols@w:num`，等宽看 `w:equalWidth`，分隔线 `w:sep` | 多节文档要按节取，不能只看第一个 sectPr | word2/5/9 |
+| 页面边框 | `w:pgBorders` + 四个 `w:top/bottom/left/right@w:val/@w:sz/@w:color` | `w:offsetFrom="page"` 才是页面边框，`text` 是文字边框 | word9 |
+| 目录 | `w:instrText` 里 `TOC \\o "1-3"`，或 `w:sdt` 包着的目录 | 题库未考，新题按此写 | 待补 |
+
+## 图片与形状判定的三个坑
+
+1. **同一张图有两种存法**：Office 2010 默认 DrawingML（`w:drawing`），但剪贴画、老模板、部分
+   粘贴操作落成 VML（`w:pict`）。只查一种就漏判，`_core.pictures()` 两路都收。
+2. **`wp:extent` 是 EMU**：1 厘米 360000、1 磅 12700、1 英寸 914400。题干写"高 7 厘米"
+   要换算成 2520000，允许 ±5% 误差（缩放会四舍五入）。
+3. **环绕方式看父子关系**：`wp:inline` 里的 `extent` 是嵌入型；`wp:anchor` 里的
+   `behindDoc="1"` 是衬于文字下方，`wrapTopAndBottom` 才是上下型。只看 `anchor` 存在会误判。
+
+## 邮件合并判定细则（word10 实战）
+
+```
+settings.xml
+<w:mailMerge>
+  <w:mainDocumentType w:val="formLetters"/>      信函
+  <w:dataType w:val="native"/>                   Excel/Access 数据源
+  <w:connectString w:val="Provider=Microsoft.ACE.OLEDB.12.0;...Data Source=...学生成绩表.xlsx;..."/>
+  <w:query w:val="SELECT * FROM `学生成绩表$`"/>
+</w:mailMerge>
+
+document.xml
+<w:instrText> MERGEFIELD 姓名 </w:instrText>     每个域一对 instrText
+```
+
+判定顺序：① `w:mailMerge` 存在（3 分）② mainDocumentType=formLetters（2 分）
+③ 数据源里出现目标表名（2 分）④ MERGEFIELD 数量 ≥5（1.5 分）⑤ 域名覆盖
+姓名/语文/数学/英语/物理/化学/总分 ≥6 个（1.5 分）。
+
+坑：不能搜 "MERGEFIELD" 字符串就完事——学生可能只插了一个域；也不能要求数据源路径
+完全一致，每人保存的绝对路径都不同，只比文件名。
+
+## 新补的陷阱（2026-10-30，对照 ECMA-376 校验后）
+
+- **页码域别搜字符串**：`'PAGE' in xml` 会命中 `NUMPAGES`、正文里的英文单词。
+  统一用 `_core.checks.has_field(xml, 'PAGE')`，它按 `w:instrText` 和
+  `w:fldSimple@w:instr` 里的域代码判断。word1/2/4/6/8 都已切换。
+- **ET.tostring 会加 `ns0:` 前缀**：解析后再序列化，正则里的 `<w:instrText` 就匹配不到，
+  has_field 的正则写成 `<(?:\w+:)?instrText`，同时兼容两种。
+- **页眉页脚有三态**：`w:headerReference@w:type` 是 default/first/even；
+  奇偶页不同还要 `settings.xml` 里有 `w:evenAndOddHeaders`，只看 header 部件数量会误判。
+- **字符单位与 twips 别混**：`w:ind@w:firstLineChars="200"` 是 2 字符，
+  而 `w:pgMar@w:top="1418"` 是 2.5cm（twips）。判断容差按各自单位取。
+- **样式链要合并**：docDefaults → 样式表 basedOn 链 → pPr/rPr → run 的 rPr，
+  只看 run 会漏掉样式给的字体字号（word3 的"小四"就来自 a3 样式）。
+- **底纹看 themeFill+tint**：`w:shd@w:fill` 为空而 `w:themeFill="background2" w:themeFillTint="80"`
+  才是"强调文字颜色5 淡色80%"，只比 fill 会判错。
 
 ## 何时使用此技能
 
@@ -157,6 +236,29 @@ def GA(elem, attr, default=None):
 ```
 
 **重要：** 始终使用这些辅助函数，而不是手动`find()`/`get()`调用。
+
+## 统一内核（新评分器直接用）
+
+`student_exam_app/graders/_core/` 里的 `WordDoc` 已经把段落、样式继承、节、页眉页脚、表格读完：
+
+```python
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _core import WordDoc, Report, extract_word_parts
+
+doc = WordDoc(path)
+for p in doc.paragraphs:
+    p.index, p.text, p.style
+    p.props['jc'], p.props['firstLineChars'], p.props['beforeLines']
+    p.runs[0].props['font'], p.runs[0].props['size'], p.runs[0].props['bold']
+
+doc.page_setup()            # 纸张/页边距/分栏/行数，默认取 body 级 sectPr
+doc.header_texts(); doc.footer_texts()
+doc.tables[0].cell_texts(); doc.numbering; doc.instr_texts()
+doc.text_all()              # 正文+页眉页脚+脚注尾注+表格，用于全文查找
+```
+
+`run.props` 已经把 docDefaults → 样式链（basedOn）→ 段落级 `pPr/rPr` → 运行级 `rPr` 合并过一遍，不用再自己判断"字体到底设在哪一级"。
 
 ## 关键XML概念
 
@@ -493,6 +595,34 @@ for p in children(cell, W + 'p'):
 
 **解决：** 用 `w:firstLineChars`（字符单位）检查：`GA(ind,'w:firstLineChars','')=='200'`
 
+### 错误20：`extractall()` 每次判分解出上百个文件
+
+**问题：** 判分服务跑久了 `uploads/` 里堆满 `_xml_学生文件/word/media/*`，每份 docx 解出 70+ 个文件；清理时还会被批量删除保护拦住。
+
+**原因：** `z.extractall(dir)` 把图片、缩略图、docProps 全解出来了，评分根本用不到 `word/media/`。
+
+**解决：** 只解评分需要的 XML：
+
+```python
+from _core import extract_word_parts
+extract_word_parts(self.docx, self.xmldir)
+# 文档/样式/设置/编号/脚注/尾注 + header*.xml + footer*.xml + _rels/*.rels + diagrams/theme
+```
+
+实测第 2 套从 70 个文件降到 15 个左右，判分更快，也不再触发清理限制。`self.media` 只是打印用，留空不影响任何评分项。
+
+### 错误21：`page_setup()` 取错了 sectPr
+
+**问题：** 分栏文档里 `for sp in doc.iter(sectPr)` 有 3 个，最后一个可能是段落级 sectPr（分栏用），页边距和题目要求对不上。
+
+**解决：** 优先取 body 的直接子元素：
+
+```python
+sect = doc.body.find(q('sectPr'))   # body 级 = 全文档页面设置
+```
+
+`_core.WordDoc.page_setup()` 已按这个顺序取（body 级 → 最后一级兜底）。
+
 ## 一次性成功检查清单
 
 每次写新评分器前，逐项确认以下规则，避免多次迭代：
@@ -537,10 +667,23 @@ for p in children(cell, W + 'p'):
 
 ---
 
+## 回归与部署
+
+```bash
+python tools/selftest.py     # 全部评分器对标准答案跑一遍，必须全 100
+python tools/core_sweep.py   # 核心库遍历 10 套 Word 答案，确认无解析异常
+python deploy.py --dry-run   # 发布前预检 + 打包
+```
+
+Word 评分器的满分常见是 110（每项分值加起来不为 100），`selftest.py` 和 `app.py` 都按百分比折算，不要为了凑 100 去改分值——改分值会让每项的权重失衡。
+
+---
+
 **技能创建：** 2026-07-02  
 **作者：** WorkBuddy AI  
-**版本：** 3.7（2026-07-05）  
+**版本：** 3.8（统一内核 + 解压/分节修正 + 回归部署）  
 **更新内容：**
+- 3.8：`_core.WordDoc` 用法（样式链合并、body 级 sectPr、页眉页脚文本）；错误20（extractall 解出上百文件）、错误21（多 sectPr 取错）；回归与部署命令
 - v3.4：**新增 `scripts/analyze.py`** — 通用修订分析器（1条命令替代 1254 行手写代码）
 - **工作流第二步**改为运行分析器 → 直接读 `analysis.md` 出题+评分
 - 文件夹7/8/10 全部完成，积累 7 套评分器实战经验
@@ -911,3 +1054,91 @@ DashedSmallGap, ThreeDEmboss, ThreeDEngrave, Outset, Inset
 | 边框1/8pt → pt | ÷8 (val="12"=1.5pt) |
 | DrawingML 字号 → pt | ÷100 (val="2800"=28pt) |
 | tint/shade 百分比 → 值 | ×1000 (50%=50000) |
+
+## 判分点全表（含题库未考但可能出现的）
+
+> 完整版（三科合并）在 `student_exam_app/tools/reference/判分点全表.md`；这里只放本科目。新题先对表，再写代码。
+
+### 文档与节
+
+| 元素/属性 | 语义 | 判定要点 / 陷阱 |
+| --- | --- | --- |
+| `w:pgSz@w/h/orient` | 纸张大小方向 | A4=11906×16838 twips；横向看 `orient="landscape"`（宽高会互换，别只比 w） |
+| `w:pgMar@top/right/bottom/left/header/footer/gutter` | 页边距 | 2.8 厘米=1588、3 厘米=1701；`header/footer` 是页眉页脚距边界，不是边距 |
+| `w:pgBorders` + 四条 `w:top…` | 页面边框 | `offsetFrom="page"` 是页面边框，`text` 是文字边框；艺术型看 `w:val` |
+| `w:cols@num/space/sep/equalWidth` | 分栏 | 多节文档要按 `sectPr` 逐节取；`w:cols` 出现在 `sectPr` 里，不在 pPr |
+| `w:docGrid@type/linePitch/charSpace` | 文档网格 | "每页 42 行每行 39 字" = `type="linesAndChars" linePitch=… charSpace=…` |
+| `w:pgNumType@fmt/start` | 页码格式/起始 | 起始页 1 = `start="1"`；罗马数字看 `fmt="lowerRoman"` |
+| `w:titlePg` | 首页不同 | 必须配合 `headerReference@type="first"` 才生效 |
+| `w:evenAndOddHeaders`（settings） | 奇偶页不同 | 在 settings.xml，不在 document.xml；缺它则 even 页眉不生效 |
+| `w:sectType@val` | 分节符类型 | `nextPage`/`continuous`/`evenPage`/`oddPage` |
+
+### 段落与字符
+
+| 元素/属性 | 语义 | 判定要点 / 陷阱 |
+| --- | --- | --- |
+| `w:pStyle@val` | 段落样式 | 样式名是 styleId，中文名在同 id 的 `w:name`；"标题 1" 的 id 常是 `1` |
+| `w:jc@val` | 对齐 | 两端对齐=`both`，分散对齐=`distribute`；不要拿 `center` 一把梭 |
+| `w:ind@firstLine/firstLineChars/left/right/hanging` | 缩进 | `firstLineChars="200"` 是 2 字符；混用 twips 与字符单位会差 100 倍 |
+| `w:spacing@before/after/line/lineRule` | 段前段后/行距 | 固定值 18 磅 = `line="360" lineRule="exact"`；倍数行距是 `lineRule="auto"` + `line="240"×倍数` |
+| `w:snapToGrid` | 对齐网格 | 关闭才允许非整数行距，题干说"固定值"时答案常关它 |
+| `w:keepNext/keepLines/pageBreakBefore/widowControl` | 分页控制 | 常见"标题不与正文分离"=`keepNext` |
+| `w:outlineLvl@val` | 大纲级别 | 0=1 级；目录靠它抓取，样式标题也自带 |
+| `w:numPr`→`w:num`→`w:abstractNumId` | 编号 | 段落必须真引用 numId；只建 abstractNum 不算 |
+| `w:pBdr` / `w:shd` | 段落边框底纹 | `w:shd@val` 是图案（clear/solid），`@fill` 才是颜色 |
+| `w:framePr@dropCap/lines/h/wrap` | 首字下沉/文本框 | `dropCap="drop"` + `lines="2"`；文本框也用它定位 |
+| `w:rFonts@ascii/hAnsi/eastAsia/cs` | 字体 | 中文看 `eastAsia`，西文 `ascii`；只判 ascii 会漏"华文行楷" |
+| `w:b/@bCs` `w:i/@iCs` | 加粗/斜体 | `w:b w:val="0"` 是**取消**加粗，别只看标签存在 |
+| `w:sz@val` `w:szCs` | 字号 | 半磅单位：二号=44（22 磅），小四=24；中文复杂文种看 szCs |
+| `w:color@val/themeColor/themeTint` | 颜色 | 主题色要看 `themeColor` + `themeTint`，`val="auto"` 是自动 |
+| `w:u@val` | 下划线 | 单线=`single`，波浪=`wave`，"始终无下划线"是链接样式不是 u |
+| `w:vertAlign@val` | 上下标 | `superscript`/`subscript`，不是 position |
+| `w:spacing@val`（rPr 内） | 字符间距加宽 | 单位 twips，加宽 2 磅 = `val="40"` |
+| `w:em@val` / `w:highlight@val` | 着重号 / 突出显示 | 着重号是 em，不是下划线 |
+
+### 表格
+
+| 元素/属性 | 语义 | 判定要点 / 陷阱 |
+| --- | --- | --- |
+| `w:tblW@w/type` | 表宽 | `type="pct"` 是百分比（5000=100%），`dxa` 是 twips |
+| `w:jc@val`（tblPr 内） | 表格对齐 | `center`；与内容居中无关 |
+| `w:tblBorders` / `w:tcBorders` | 边框 | 单元格级覆盖表级；"外框双线内框单线"要分别判 top/insideH |
+| `w:tblLayout@type` | 固定/自动布局 | "根据内容调整"=`autofit` |
+| `w:tblCellMar` / `w:tblCellSpacing` | 单元格边距/间距 | 单位 twips |
+| `w:tblStyle@val` + `w:tblLook` | 表格样式 | 样式 id 与显示名不同；套用后局部底纹会覆盖 |
+| `w:trHeight@val/@hRule` | 行高 | 1 厘米=567；`hRule="exact"` 是固定值 |
+| `w:gridSpan` / `w:vMerge` | 合并单元格 | 横向 gridSpan，纵向 vMerge(restart/continue)；没有 mergeCell 概念 |
+| `w:tcW` / `w:shd` / `w:vAlign` | 列宽/底纹/垂直对齐 | `shd@fill` 颜色，`vAlign="center"` |
+| `w:tblHeader` | 标题行重复 | 跨页表头 |
+
+### 域、引用、批注
+
+| 元素/属性 | 语义 | 判定要点 / 陷阱 |
+| --- | --- | --- |
+| `w:fldSimple@w:instr` / `w:instrText` | 域代码 | 页码 `PAGE`、总页 `NUMPAGES`、日期 `DATE`、目录 `TOC`、题注 `SEQ`、邮件合并 `MERGEFIELD`、交叉引用 `REF` |
+| `w:fldChar@type` | 复合域分界 | begin/separate/end 三段，缓存结果在中间段 — 判"是不是域"看 instrText，判"显示什么"看缓存文本 |
+| `w:bookmarkStart/@w:name` | 书签 | 交叉引用/目录跳转依赖它 |
+| `w:hyperlink@r:id/@w:anchor` | 超链接 | 外链看 r:id→rels 的 Target；站内锚点看 `w:anchor` |
+| `w:footnoteReference` + `footnotes.xml` | 脚注 | 编号在 `w:footnote@w:id`；尾注同理 endnotes |
+| `w:commentReference` + `comments.xml` | 批注 | 批注正文独立部件 |
+| `w:ins` / `w:del` / `w:rPrChange` | 修订 | 修订未接受时文字在 `w:ins` 里，`w:delText` 是被删内容 |
+| `w:sdt` + `w:sdtPr` | 内容控件 | 下拉/日期控件：`w:dropDownList`、`w:date`；题干"控件"类考点 |
+
+### 图形、图表、其他
+
+| 元素/属性 | 语义 | 判定要点 / 陷阱 |
+| --- | --- | --- |
+| `w:drawing/wp:inline|wp:anchor` | 图片/图形容器 | inline=嵌入型；anchor 带 `behindDoc`、`wrap*`、`distT/B` |
+| `wp:extent@cx/cy` | 尺寸 | EMU，1 厘米=360000；7 厘米=2520000 |
+| `a:blip@r:embed` | 图片引用 | 指向 rels 里的 media 文件 |
+| `a:srcRect@l/t/r/b` | 裁剪 | 千分比；`l="25000"` 裁掉左侧 25% |
+| `a:lum@bright/contrast` | 亮度对比度 | 百分比 ×1000 |
+| `a:prstGeom@prst` | 形状类型 | rect/roundRect/ellipse/rightArrow… |
+| `a:prstTxWarp@prst` | 艺术字变形 | textArchUp 等 |
+| `w:pict/v:shape/v:imagedata` | VML 旧式图形 | 剪贴画、水印、老模板；`v:textpath@string` 是艺术字文字 |
+| `w:drawing` 里 `c:chart@r:id` | 图表 | 图表数据在 `word/charts/chartN.xml`，不在 document.xml |
+| `dgm:relIds` | SmartArt | 内容在 `word/diagrams/dataN.xml` |
+| `m:oMath` | 公式 | math 命名空间；老版公式是 `EQ` 域 |
+| `w:settings` 里 `w:documentProtection` | 文档保护 | 只读/仅表单 |
+| `w:mailMerge` | 邮件合并 | 见上文专章 |
+

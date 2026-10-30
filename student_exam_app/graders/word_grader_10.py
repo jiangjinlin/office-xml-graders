@@ -1,6 +1,8 @@
 """Word 2010 评分器 - 文件夹10 (v2 修订驱动 + 章节调整)"""
 import zipfile, os, re, io, sys
 import xml.etree.ElementTree as ET
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _core import mail_merge_info, merge_fields
 
 W='{http://schemas.openxmlformats.org/wordprocessingml/2006/main}'
 RNS='{http://schemas.openxmlformats.org/officeDocument/2006/relationships}'
@@ -66,7 +68,7 @@ class Grader10:
         rr.append(self.r1()); rr.append(self.r2()); rr.append(self.r3())
         rr.append(self.r4()); rr.append(self.r5()); rr.append(self.r6())
         rr.append(self.r7()); rr.append(self.r8()); rr.append(self.r9())
-        rr.append(self.r10()); rr.append(self.r11())
+        rr.append(self.r10()); rr.append(self.r11()); rr.append(self.r12())
         t=round(sum(x['s'] for x in rr),1)
         rr.append({'req':0,'name':'总分','s':t,'full':100,'d':[],'st':'pass' if t>=60 else 'fail'})
         return rr
@@ -77,7 +79,7 @@ class Grader10:
         return {'req':req,'name':name,'s':round(score,1),'full':int(full),'d':detail,'st':st}
     
     def r1(self):
-        d=[]; s=0; f=10
+        d=[]; s=0; f=9
         for sp in self.doc_root.iter(W+'sectPr'):
             pgMar=child(sp,W+'pgMar')
             dg=child(sp,W+'docGrid')
@@ -91,7 +93,7 @@ class Grader10:
         return self.R(1,'页面设置',s,f,d)
     
     def r2(self):
-        d=[]; s=0; f=8
+        d=[]; s=0; f=6
         paras=children(self.body,W+'p')
         if not paras: return self.R(2,'标题',s,f,d)
         pPr=child(paras[0],W+'pPr')
@@ -106,7 +108,7 @@ class Grader10:
         return self.R(2,'标题',s,f,d)
     
     def r3(self):
-        d=[]; s=0; f=10
+        d=[]; s=0; f=9
         paras=children(self.body,W+'p')
         ind_ok=0; line_ok=0; body_n=0
         for p in paras:
@@ -149,7 +151,7 @@ class Grader10:
         return self.R(4,'正文字体',s,f,d)
     
     def r5(self):
-        d=[]; s=0; f=10
+        d=[]; s=0; f=9
         # 解析 numbering.xml：numId → abstractNumId → lvl0 的 numFmt
         num2abs={}
         numroot=None
@@ -200,7 +202,7 @@ class Grader10:
         return self.R(6,'第二标题',s,f,d)
     
     def r7(self):
-        d=[]; s=0; f=10
+        d=[]; s=0; f=9
         tbls=list(self.body.iter(W+'tbl'))
         if not tbls: return self.R(7,'表格格式',s,f,d)
         tbl=tbls[0]; rows=children(tbl,W+'tr')
@@ -244,7 +246,7 @@ class Grader10:
         return self.R(8,'页眉',min(s,f),f,d)
     
     def r9(self):
-        d=[]; s=0; f=7
+        d=[]; s=0; f=5
         url_ok=False
         for rel in self.rels.values():
             if 'hyperlink' in rel['y'] and rel['t']=='https://cn.bing.com/':
@@ -261,7 +263,7 @@ class Grader10:
         return self.R(9,'超链接',s,f,d)
     
     def r10(self):
-        d=[]; s=0; f=11
+        d=[]; s=0; f=10
         tbls=list(self.body.iter(W+'tbl'))
         if not tbls: return self.R(10,'表格内容',s,f,d)
         cells0=children(children(tbls[0],W+'tr')[0],W+'tc')
@@ -278,7 +280,7 @@ class Grader10:
         return self.R(10,'表格内容',s,f,d)
     
     def r11(self):
-        d=[]; s=0; f=10
+        d=[]; s=0; f=9
         for name,hxml in self.headers.items():
             hroot=ET.fromstring(hxml)
             for sh in hroot.iter(V+'shape'):
@@ -293,6 +295,34 @@ class Grader10:
         if '朝阳中职' in self.all_xml: s+=10; d.append('水印文字存在(字符串)')
         return self.R(11,'水印',s,f,d)
     
+    def r12(self):
+        d=[]; s=0; f=10
+        info = mail_merge_info(self.all_xml)
+        if info:
+            s += 3; d.append('启用邮件合并 OK')
+            if info.get('mainDocumentType') == 'formLetters':
+                s += 2; d.append('主文档类型=信函 OK')
+            conn = (info.get('connectString') or '') + (info.get('dataSource') or '') + (info.get('query') or '')
+            if '成绩' in conn:
+                s += 2; d.append('数据源指向成绩表 OK')
+            else:
+                d.append('数据源=%s' % (conn[:60] or '未设置'))
+        else:
+            d.append('未检测到 w:mailMerge')
+
+        names = merge_fields(self.all_xml)
+        if len(names) >= 5:
+            s += 1.5; d.append('合并域 %d 个 OK' % len(names))
+        else:
+            d.append('合并域数量=%d（至少应有姓名、语文、数学等）' % len(names))
+        need = {'姓名', '语文', '数学', '英语', '物理', '化学', '总分'}
+        hit = len(need & set(names))
+        if hit >= 6:
+            s += 1.5; d.append('域覆盖 %d/7 OK' % hit)
+        elif names:
+            d.append('域仅覆盖 %d/7：%s' % (hit, '、'.join(sorted(set(names))[:7])))
+        return self.R(12, '邮件合并', s, f, d)
+
     def report(self):
         results=self._results if hasattr(self,'_results') else []
         pc=sum(1 for r in results[:-1] if r['st']=='pass')

@@ -148,3 +148,89 @@ def field_name(code):
         if re.match(r'^[A-Za-z]+$', token):
             return token.upper()
     return ''
+
+
+def _tags(xml_text, name):
+    """prefix 无关地取标签，返回 (attrs_str, inner) 列表。"""
+    pat = r'<(?:\w+:)?%s\b([^>]*)>(.*?)</(?:\w+:)?%s>' % (name, name)
+    return re.findall(pat, xml_text, re.S)
+
+
+def mail_merge_info(xml_text):
+    """取 w:mailMerge 配置，返回 dict 或 None。
+
+    settings.xml 里的结构：
+      <w:mailMerge><w:mainDocumentType w:val="formLetters"/>
+        <w:dataType w:val="native"/><w:connectString w:val="Provider=..."/>
+        <w:query w:val="SELECT * FROM ..."/>...
+    """
+    m = re.search(r'<(?:\w+:)?mailMerge\b[^>]*>(.*?)</(?:\w+:)?mailMerge>', xml_text, re.S)
+    if not m:
+        return None
+    block = m.group(1)
+    out = {}
+    for key in ('mainDocumentType', 'dataType', 'connectString', 'query',
+                'dataSource', 'headerSource', 'linkToQuery', 'destination'):
+        mm = re.search(r'<(?:\w+:)?%s\b[^>]*?\bval="([^"]*)"' % key, block, re.S)
+        if mm:
+            out[key] = mm.group(1)
+    return out or {'present': True}
+
+
+def merge_fields(xml_text):
+    """取邮件合并域名称列表（MERGEFIELD 后面的域名）。"""
+    names = []
+    for _attrs, inner in _tags(xml_text, 'instrText'):
+        if 'MERGEFIELD' not in inner.upper():
+            continue
+        m = re.search(r'MERGEFIELD\s+"?([^"\\*]+)', inner, re.I)
+        if m:
+            names.append(m.group(1).strip())
+    for instr in re.findall(r'<(?:\w+:)?fldSimple\b[^>]*\binstr="([^"]*)"', xml_text):
+        if 'MERGEFIELD' in instr.upper():
+            m = re.search(r'MERGEFIELD\s+"?([^"\\*]+)', instr, re.I)
+            if m:
+                names.append(m.group(1).strip())
+    return names
+
+
+def pictures(xml_text):
+    """收集文档里的图片，返回 [{rid, cx, cy, anchor, wrap}]。
+
+    DrawingML: <w:drawing><wp:inline|wp:anchor><wp:extent cx cy><a:blip r:embed>
+    VML(旧式/剪贴画): <w:pict><v:shape><v:imagedata r:id>
+    cx/cy 单位 EMU，1 厘米 = 360000。
+    """
+    out = []
+    for kind in ('inline', 'anchor'):
+        for attrs, inner in _tags(xml_text, kind):
+            rid = re.search(r'\br:embed="([^"]+)"', inner) or re.search(r'\br:id="([^"]+)"', inner)
+            ext = re.search(r'<(?:\w+:)?extent\b[^>]*cx="(\d+)"[^>]*cy="(\d+)"', inner)
+            wrap = 'none'
+            for w in ('wrapSquare', 'wrapTight', 'wrapThrough', 'wrapTopAndBottom', 'wrapNone'):
+                if re.search(r'<(?:\w+:)?%s\b' % w, inner):
+                    wrap = w
+                    break
+            out.append({'rid': rid.group(1) if rid else '',
+                        'cx': int(ext.group(1)) if ext else 0,
+                        'cy': int(ext.group(2)) if ext else 0,
+                        'anchor': kind == 'anchor', 'wrap': wrap})
+    for attrs, inner in _tags(xml_text, 'pict'):
+        for sh_attrs, sh_inner in _tags(inner, 'shape'):
+            img = re.search(r'<(?:\w+:)?imagedata\b[^>]*\br:id="([^"]+)"', sh_inner)
+            if img:
+                style = re.search(r'style="([^"]*)"', sh_attrs)
+                out.append({'rid': img.group(1), 'cx': 0, 'cy': 0, 'anchor': True,
+                            'wrap': 'vml', 'style': style.group(1) if style else ''})
+    return out
+
+
+def vml_shapes(xml_text):
+    """取 VML 形状（文本框、艺术字、水印、椭圆标注都是这个）。"""
+    out = []
+    for attrs, inner in _tags(xml_text, 'shape'):
+        out.append({'attrs': attrs, 'inner': inner,
+                    'id': (re.search(r'id="([^"]*)"', attrs) or [None, ''])[1],
+                    'style': (re.search(r'style="([^"]*)"', attrs) or [None, ''])[1],
+                    'type': (re.search(r'type="([^"]*)"', attrs) or [None, ''])[1]})
+    return out

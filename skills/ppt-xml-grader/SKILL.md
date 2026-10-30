@@ -8,6 +8,16 @@ agent_created: true
 
 通过直接解析.pptx文件内部的Open XML结构，精准检测PPT文档格式和内容，实现操作题自动评分。
 
+## 权威参考（查结构先看这里）
+
+- 规范：ECMA-376 Part 1 §19（PresentationML，幻灯片/版式/母版/切换）、
+  §21（DrawingML，文字、颜色、填充、形状）。字号 `a:rPr@sz` 在 §21.1.2.3.7。
+- MS 文档：https://learn.microsoft.com/zh-cn/office/open-xml/presentation/overview
+  SDK 类名即元素名：`SlideIdList`=`p:sldIdLst`、`Transition`=`p:transition`。
+- ooxml.org：https://ooxml.org/drawingml/ 有 142 个 DrawingML 元素页（含 a:latin/a:ea/a:solidFill）；
+  PresentationML 页面还是 Coming soon，PPT 主结构照 MS 文档和 §19。
+- 本地速查表：`student_exam_app/tools/reference/OOXML-速查.md`。
+
 ## 核心能力
 
 **PPTX 结构：** ZIP解压 → presentation.xml(幻灯片列表) → slideMasters(母版) → slides(幻灯片) → _rels(关系映射)
@@ -19,6 +29,87 @@ agent_created: true
 - `slideN.xml.rels` → 图片引用映射(rId → media/imageN.jpeg)
 - `theme1.xml` → 主题名称
 - `presProps.xml` → 放映属性(browse/kiosk)
+
+## 考点覆盖表（按题库 10 套实测）
+
+| 考点 | XML 证据 | 判定要点 | 已有实现 |
+| --- | --- | --- | --- |
+| 主题 | `ppt/theme/theme1.xml` 的 `a:clrScheme`/`a:fontScheme` | 主题名在 `theme@name`；改配色看 `a:clrScheme` 的 `a:accent1..6` | ppt1-10 |
+| 母版/版式 | `ppt/slideMasters/*.xml`、`ppt/slideLayouts/*.xml`、`p:sldLayoutIdLst` | 版式归属看 `sldLayout` 的 rels；母版文字样式在 `p:txStyles` | ppt1-10 |
+| 幻灯片增删/顺序 | `ppt/presentation.xml` 的 `p:sldIdLst` + `p:sldId@r:id` | 顺序以 sldIdLst 为准，文件名不可信；删除=该 sldId 不在列表且 rels 无引用 | ppt4/9 |
+| 动画 | `p:timing` → `p:animEffect@transition="in"` + `p:cBhvr` | 滤镜形如 `barn(inVertical)`、`fade(in)`；"进入/退出"看 transition 值 | ppt1-9 |
+| 动画顺序/计时 | `p:animEffect` 的 `p:cTn@dur`、`p:seq` | "自动播放"看 `p:cTn@indefinite="1"` 或 `p:cond` 事件类型 | ppt3/5 |
+| 切换效果 | `p:transition` 下的 `p:blinds@dir`、`p:dissolve`、`p14:fade` | 百叶窗=`p:blinds`，溶解=`p:dissolve`；2010 有的效果在 `p14:` 命名空间 | ppt1-9 |
+| 切换声音/速度 | `p:transition@spd="slow"` + `p:sndAc` | 速度 slow/med/fast；声音在 `p:sndAc/p:stSnd` 引用 rels | ppt1-9 |
+| 放映方式 | `p:showPr@showType`（present/kiosk/browse） | 观众自行浏览 = `showType="browse"`，在展台浏览 = `kiosk` | ppt1-9 |
+| 备注 | `ppt/notesSlides/notesSlideN.xml` 的 `a:t` | 备注是独立部件，不能从 slide xml 找 | ppt4/6 |
+| 动作按钮/超链接 | `a:hlinkClick@r:id` 或 `p:sldJmp`；按钮形状 `a:prstGeom@prst="actionButton..."` | 跳到某页看 `p:sldJmp` 或 hlink 指向 slide rels | ppt6 |
+| 音频/视频 | `p:pic` 里的 `a:videoFile@r:link` / `a:audioFile`，或 `p:timing` 的 `p:audio` | 媒体文件在 `ppt/media/`，引用在 `p:nvPr` 的 media rels | ppt1-10 |
+| 图片插入/尺寸 | `p:pic/p:spPr/a:xfrm/a:ext@cx/cy` | 单位 EMU，1 厘米 360000；"铺满整页"要 == 幻灯片尺寸（12192000×6858000，16:9） | ppt1-10 |
+| 图片样式/柔化 | `a:prstGeom@prst`（如 `roundRect`/`softEdge` 效果在 `a:effectLst/a:softEdge@rad`） | "柔化边缘矩形"= `prstGeom prst="rect"` + `a:softEdge`，"圆角矩形"= `roundRect` | ppt1/6 |
+| 图片裁剪 | `a:srcRect@l/t/r/b`（千分比） | 题库未考，新题按此写 | 待补 |
+| 艺术字 | `a:prstTxWarp@prst` 或文字用 `a:gradFill` 渐变填充 | 题库判"艺术字"时多用渐变填充/轮廓做证据（见 ppt6） | ppt6/7 |
+| 表格 | `a:tbl` 的 `a:tr/a:tc`、`a:tblPr@firstRow` | 表格样式看 `a:tblPr` 的 bandRow/firstRow 开关 | ppt1/10 |
+| SmartArt | `ppt/diagrams/data*.xml` + `p:graphicFrame` 的 `dgm:relIds` | 文字在 diagrams 部件，slide xml 只有引用 | ppt4 |
+| 图表 | `ppt/charts/chartN.xml`（`c:` 命名空间） | 与 Excel 图表同构，判类型/标题照样用 `c:` 元素 | ppt2/6 |
+| 编号/项目符号 | `a:buAutoNum@type`、`a:buChar@char` | "1. 2. 3." = `buAutoNum arabicPeriod`；圆点是 `buChar "•"` | ppt1/2/6 |
+
+## 动画/切换判定的三个坑
+
+1. **动画在 `p:timing` 里，不在 `p:sp`**：同一形状可以挂多个动画（进入+强调+退出），
+   要按 `p:cBhvr/p:tgtEl/p:spTgt@spid` 定位到具体形状。
+2. **`p:animEffect@filter` 带方向**：`barn(inVertical)` 是"垂直百叶窗"，
+   只比 `barn` 会放过方向错的答案。
+3. **切换 2010 有 `p14:` 扩展**：新版效果（如 `p14:reveal`、`p14:flythrough`）不在 `p:transition`
+   主命名空间，扫字符串时要把 `p14:` 也算进去。
+
+## 母版与继承的判定顺序
+
+`slide → slideLayout → slideMaster → theme`，四级都要看：
+
+- 占位符位置/大小：`p:sp/p:spPr/a:xfrm` 在 slide 里没有就往上找 layout、master。
+- 字体：run 的 `a:rPr/a:latin|a:ea` → 段落 `a:defRPr` → 占位符 `p:txBody/a:lstStyle` →
+  母版 `p:txStyles` → 主题 `a:fontScheme`。
+- 颜色：`a:solidFill/a:srgbClr` → `a:schemeClr@val` 查主题 `clrScheme`。
+
+`_core.pptcheck.resolved_shapes()` 已经做了这层合并，新评分器直接用它，别自己爬 XML。
+
+## 新补的陷阱（2026-10-30，对照 ECMA-376 校验后）
+
+- **中文字体在 `a:ea` 上**：`a:latin` 只管西文。题干说"设置为华文行楷"时，
+  答案常常把字体挂在 `a:ea`（或 `a:cs`），只查 latin 会漏判。`_core.pptcheck` 的
+  `resolved_shapes()` 已经把 run 级/段落级/继承的字体合并好了，优先用它。
+- **字号是百分之一磅**：`sz="4000"` 是 40 磅，`sz="1800"` 是 18 磅；别按 pt 直接比。
+- **放映顺序看 `p:sldIdLst` 再走 rels**：文件名 slide10.xml 不代表第 10 张，
+  一律用 `slide_no()` 映射；排序用数字不能用字符串（slide10 会排到 slide2 前面）。
+- **继承链是四级**：slide → slideLayout → slideMaster → theme。占位符位置、字号、
+  颜色都可能来自母版 `p:txStyles` 或主题 `a:fontScheme`，只看 slide xml 会误判"没设置"。
+- **动画看 `p:timing`**：`p:animEffect@transition="in"` + `p:cBhvr` 里的 `p:attrNameLst`
+  才是"进入+滤镜"，`p:animEffect` 的 filter 值形如 `barn(inVertical)`。
+- **切换效果 2010 有扩展**：常见 `p:blinds@dir`、`p:dissolve`、`p14:fade`；
+  判"百叶窗"就是 `<p:blinds`，别去 `p14` 里找。
+
+## 统一内核（优先用这套）
+
+`student_exam_app/graders/_core/` 里的 `PptDeck` 已经处理好放映顺序、版式/母版/主题继承、切换和备注：
+
+```python
+import os, sys
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from _core import PptDeck, Report
+
+deck = PptDeck(path)
+len(deck.slides), deck.slide_size, deck.theme['name'], deck.show_type
+
+for slide in deck.slides:                       # 已是放映顺序，不是文件名顺序
+    slide.index, slide.title, slide.text, slide.transition
+    deck.layout_part(slide), deck.notes_text(slide), deck.image_targets(slide)
+    for item in deck.resolved_shapes(slide):    # 坐标和字体已补全
+        item['name'], item['placeholder'], item['left'], item['width']
+        item['runs'][0]['font'], item['runs'][0]['size'], item['runs'][0]['bold']
+```
+
+`resolved_shapes()` 会依次从版式占位符、母版占位符、母版 `txStyles`（titleStyle/bodyStyle）、主题字体里补齐字号、加粗、字体和坐标。**直接读 `slide.xml` 里的 `a:rPr` 经常是空的**，因为格式继承自版式，这是 PPT 和 Excel/Word 最大的差别。
 
 ## PPTX XML 结构
 
@@ -229,6 +320,45 @@ if '<p:browse' in self.pres_props_xml: score += 2
 if self.get_slide_count() == 3: score += 3
 ```
 
+## 陷阱：幻灯片顺序与继承
+
+### `sorted(slides.keys())` 会排错
+
+字符串排序结果是 slide1、slide10、slide2……超过 9 张就乱。题目里"第 3 张幻灯片"指的是放映顺序，不是文件名。
+
+```python
+# ❌ 字符串排序
+slide_list = sorted(self.slides.keys())
+
+# ✅ 数字排序（_core.slide_no）
+from _core import slide_no
+slide_list = sorted(self.slides.keys(), key=slide_no)
+
+# ✅ 更准：直接用放映顺序
+for slide in deck.slides:  # 已按 presentation.xml 的 sldIdLst 展开
+    ...
+```
+
+学生移动过幻灯片后，`slide2.xml` 可能已经排到第 5 位。凡是按"第 N 张"判分的题，必须走放映顺序。
+
+### 占位符的字体字号通常在版式里
+
+标题占位符在 `slide2.xml` 里往往只有 `<p:ph type="title"/>` 和文字，字号继承自 `slideLayout2.xml`，再不行继承 `slideMaster1.xml` 的 `p:txStyles/titleStyle`，再不行才是主题字体。
+
+```python
+# ❌ 直接读 slide 里的 rPr，size 全是 0
+for sh in slide.shapes:
+    sh.runs[0].size
+
+# ✅ 走继承解析
+for item in deck.resolved_shapes(slide):
+    item['runs'][0]['size'], item['runs'][0]['font'], item['runs'][0]['bold']
+```
+
+### 项目符号可能是 `buNone`
+
+段落没写 `a:buChar` 不代表没项目符号——默认继承版式；反过来，删掉项目符号后会有显式 `<a:buNone/>`。判"取消项目符号"要查 `buNone`，"加箭头符号"要查 `buChar char="Ø"`。
+
 ## 字号对照表
 
 | PPT字号(px) | XML sz值 | 说明 |
@@ -252,12 +382,28 @@ if self.get_slide_count() == 3: score += 3
 - [ ] 主题名称(theme name属性)
 - [ ] 放映方式(presProps → browse/kiosk)
 - [ ] 幻灯片删除(比较源文件和答案文件数量)
+- [ ] 第 N 张 → 按放映顺序，不用 `sorted(slides.keys())` 字符串排序
+- [ ] 字体字号 → `deck.resolved_shapes()`，占位符格式继承自版式/母版
+- [ ] 取消项目符号 → 查 `a:buNone`
+
+---
+
+## 回归与部署
+
+```bash
+python tools/selftest.py     # 全部评分器对标准答案跑一遍，必须全 100
+python tools/core_sweep.py   # 核心库遍历 10 套 PPT 答案，确认无解析异常
+python deploy.py --dry-run   # 发布前预检 + 打包
+```
+
+评分器满分不一定是 100（有的按 15 分/题给），`tools/selftest.py` 和 `app.py` 都按"实际得分 ÷ 满分"折算百分比，不用手动调分。
 
 ---
 
 **技能创建：** 2026-07-03  
-**版本：** 1.5（PPT1-5实战 + 架构参考 + 分析器/模板脚本）  
+**版本：** 1.6（统一内核 + 顺序/继承陷阱 + 回归部署）  
 **更新：** 新增 `scripts/ppt_analyze.py`（对比素材vs答案）+ `scripts/ppt_grader_template.py`（评分器骨架）
+- 1.6：`_core.PptDeck` 用法（放映顺序、`resolved_shapes` 继承解析）；新增顺序/继承/项目符号三个陷阱；回归与部署命令
 
 ## 新增检测模式 (v1.1)
 
@@ -525,3 +671,80 @@ LAYOUT_MAP = {
 | 1 pt | 12700 | 0.0353 |
 | 1 cm | 360000 | 1.0 |
 | 字号×100 | — | `"2800"` = 28pt → 28×12700 EMU |
+
+## 判分点全表（含题库未考但可能出现的）
+
+> 完整版（三科合并）在 `student_exam_app/tools/reference/判分点全表.md`；这里只放本科目。新题先对表，再写代码。
+
+### 演示文稿与幻灯片
+
+| 元素/属性 | 语义 | 判定要点 / 陷阱 |
+| --- | --- | --- |
+| `p:sldMasterIdLst` / `p:sldIdLst` | 母版/幻灯片列表 | 顺序以 sldIdLst 为准；`p:sldId@id` 是内部 id |
+| `p:sldSz@cx/cy` | 幻灯片尺寸 | 16:9 = 12192000×6858000 EMU；4:3 = 9144000×6858000 |
+| `p:notesSz` | 备注页尺寸 | 与幻灯片尺寸分开 |
+| `p:defaultTextStyle` | 默认文本样式 | 新建文本框继承它 |
+| `p:sectLst`（p14） | 节 | 2010 的节在扩展命名空间 |
+| `p:sldId@show="0"` | 隐藏幻灯片 | 放映时跳过 |
+| `p:cSld@name` | 幻灯片名称 | 大纲视图里的名字 |
+
+### 形状与文本
+
+| 元素/属性 | 语义 | 判定要点 / 陷阱 |
+| --- | --- | --- |
+| `p:sp` / `p:pic` / `p:graphicFrame` / `p:grpSp` / `p:cxnSp` | 形状种类 | 图片是 pic、表格图表是 graphicFrame、组合是 grpSp |
+| `p:nvSpPr/p:cNvPr@name/id` | 形状名与 id | 动画按 spid 关联，名字重复会撞 |
+| `p:spPr/a:xfrm/a:off|x` / `a:ext@cx/cy` / `@rot` | 位置尺寸旋转 | EMU；`rot` 单位 1/60000 度（90°=5400000） |
+| `a:prstGeom@prst` / `a:custGeom` | 预设/自定义形状 | roundRect、ellipse、actionButton*、flowChart* |
+| `a:solidFill/a:srgbClr|schemeClr` | 填充 | `schemeClr@val="accent1"` 要查主题 |
+| `a:gradFill` + `a:gsLst` | 渐变 | 艺术字常用；判"两种颜色渐变"看 gs 数量 |
+| `a:ln@w` + `a:solidFill` | 轮廓 | 宽度 EMU |
+| `a:effectLst/a:softEdge@rad` | 柔化边缘 | 题库"柔化边缘矩形" |
+| `a:effectLst/a:outerShdw` / `a:glow` | 阴影/发光 | 图片样式类考点 |
+| `a:blipFill/a:blip@r:embed` | 图片引用 | media 文件 |
+| `a:srcRect` | 裁剪 | 千分比 |
+| `p:txBody/a:bodyPr@anchor/wrap/vert/anchorCtr` | 文本框属性 | 垂直居中 `anchor="ctr"`；竖排 `vert="vert270"` |
+| `a:pPr@algn/marL/lvl/indent` | 段落 | 居中 `algn="ctr"`；层级 `lvl` |
+| `a:buChar@char` / `a:buAutoNum@type` / `a:buNone` | 项目符号/编号 | "1. 2. 3."=`arabicPeriod`；`buNone` 是取消 |
+| `a:lnSpc/a:spcPct@val` | 行距 | 100000=1 倍，120000=1.2 倍；`spcPts` 是固定磅值 |
+| `a:spcBef` / `a:spcAft` | 段前段后 | `spcPts` 磅或 `spcPct` |
+| `a:rPr@sz/b/i/u` + `a:latin/a:ea/a:cs` | 字号字体 | 字号×100；中文在 `a:ea` |
+| `a:prstTxWarp@prst` | 艺术字变形 | textArchUp 等 |
+
+### 表格、图表、SmartArt、媒体
+
+| 元素/属性 | 语义 | 判定要点 / 陷阱 |
+| --- | --- | --- |
+| `a:tbl` + `a:tblPr@firstRow/bandRow` + `a:tblGrid/a:gridCol@w` | 表格 | 行高 `a:tr@h`；列宽在 gridCol |
+| `p:graphicFrame` + `c:chart@r:id` | 图表 | 图表 XML 在 `ppt/charts/chartN.xml`，与 Excel 同构 |
+| `dgm:relIds` | SmartArt | 内容在 `ppt/diagrams/dataN.xml` |
+| `a:videoFile@r:link` / `a:audioFile` | 音视频 | 引用在 rels，文件在 `ppt/media/` |
+| `p:nvPr/p:media` | 媒体关系 | 与 timing 配合做自动播放 |
+
+### 动画、切换、放映
+
+| 元素/属性 | 语义 | 判定要点 / 陷阱 |
+| --- | --- | --- |
+| `p:timing/p:tnLst/p:par/p:seq` | 动画序列 | 一个形状多个动画按 `p:cBhvr/p:tgtEl/p:spTgt@spid` 定位 |
+| `p:animEffect@transition/filter` | 进入/退出效果 | `filter="barn(inVertical)"` 带方向；"擦除"=`wipe`、"飞入"=`slide(in)` |
+| `p:anim@calcmode` / `p:animMotion` / `p:animScale` / `p:animRot` | 强调/动作路径/缩放旋转 | "按方框形缩小"=`animScale` 或 `animEffect filter="box(out)"` |
+| `p:cTn@dur` / `@repeatCount` / `p:cond` | 时长/重复/触发 | "自动播放"=`p:cond delay="0"`；"单击时"=`evt="onClick"` |
+| `p:transition@spd` + `p:blinds|p:dissolve|p:fade|p14:*` | 切换效果 | 百叶窗=`p:blinds`；速度 slow/med/fast |
+| `p:sndAc` | 切换声音 | `p:stSnd` 引用 media |
+| `p:showPr@showType` | 放映方式 | `present`/`browse`（观众自行浏览）/`kiosk`（在展台浏览） |
+| `p:showPr@loop/useTimings/showAnimation` | 循环/使用计时 | 自动放映类考点 |
+
+### 母版、版式、主题、备注
+
+| 元素/属性 | 语义 | 判定要点 / 陷阱 |
+| --- | --- | --- |
+| `p:sldLayoutIdLst`（母版里） | 版式清单 | 版式名 `p:cSld@name`；`slideLayout4` 常是"两栏内容" |
+| `p:txStyles/p:titleStyle|p:bodyStyle|p:otherStyle` | 母版文字样式 | 继承链第三级 |
+| `theme/a:clrScheme` | 主题配色 | `dk1/lt1/dk2/lt2/accent1-6/hlink/folHlink` |
+| `theme/a:fontScheme@name` | 主题字体 | majorFont/minorFont 各含 latin/ea/cs |
+| `theme/a:fmtScheme` | 主题效果 | 填充/线条/效果样式列表 |
+| `p:bg` / `p:bgRef` | 背景 | 背景图 `a:blipFill`；`bgRef` 引主题样式 |
+| `notesSlide/a:t` | 备注文字 | 独立部件，不在 slide |
+| `handoutMaster` | 讲义母版 | 题库少见 |
+| 超链接 `a:hlinkClick@r:id/action` | 链接/动作 | `action="ppaction://hlinksldjump"` 是跳页；`ppaction://program` 是运行程序 |
+
