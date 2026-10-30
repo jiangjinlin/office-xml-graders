@@ -1,0 +1,29 @@
+# 文本文件统一 LF，仓库内换行不因系统漂移
+* text=auto eol=lf
+
+# 代码与文档
+*.py   text eol=lf
+*.md   text eol=lf
+*.txt  text eol=lf
+*.html text eol=lf
+*.css  text eol=lf
+*.json text eol=lf
+*.yml  text eol=lf
+*.bat  text eol=crlf
+
+# Office 与压缩包按二进制处理，禁止任何换行/编码转换
+*.docx binary
+*.doc   binary
+*.xlsx  binary
+*.xls   binary
+*.pptx  binary
+*.zip   binary
+*.png   binary
+*.jpg   binary
+*.jpeg  binary
+*.gif   binary
+*.JPG   binary
+*.GIF   binary
+
+# 第三方压缩产物不参与 diff
+student_exam_app/_release.tar.gz binary

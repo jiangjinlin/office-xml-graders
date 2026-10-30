@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>小狮子 Office 2010 操作题考试系统</title>
+<link rel="icon" type="image/png" href="/static/logo.png">
+<style>
+:root {
+  --bg: #f8fafc; --card: #fff; --border: #e2e8f0;
+  --text: #334155; --muted: #64748b; --heading: #0f172a;
+  --amber: #f59e0b; --amber-dark: #d97706; --amber-light: #fef3c7;
+  --blue: #3b82f6; --blue-light: #eff6ff;
+  --green: #10b981; --green-light: #ecfdf5;
+  --red: #ef4444; --red-light: #fef2f2;
+  --purple: #8b5cf6; --purple-light: #f5f3ff;
+  --orange: #f97316; --orange-light: #fff7ed;
+  --shadow: 0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+  --shadow-lg: 0 10px 25px rgba(0,0,0,.1);
+  --radius: 12px;
+}
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { font-family: "PingFang SC","Microsoft YaHei","Segoe UI",sans-serif; background: var(--bg); color: var(--text); min-height: 100vh; line-height: 1.6; }
+
+/* Header */
+.header { background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding: 0 24px; display: flex; align-items: center; height: 64px; position: sticky; top: 0; z-index: 100; box-shadow: 0 2px 10px rgba(0,0,0,.15); }
+.header .logo { display: flex; align-items: center; gap: 10px; }
+.header .logo .icon { font-size: 28px; }
+.header .logo .icon-img { width: 42px; height: 42px; border-radius: 50%; object-fit: cover; flex-shrink: 0; box-shadow: 0 0 0 2px rgba(245,158,11,.3); }
+.header .logo h1 { font-size: 18px; font-weight: 700; color: #fff; white-space: nowrap; }
+.header .logo span { font-size: 12px; color: #94a3b8; font-weight: 400; margin-left: 4px; }
+.header .divider { width: 1px; height: 28px; background: #334155; margin: 0 20px; }
+.subject-tabs { display: flex; gap: 4px; }
+.tab { padding: 8px 18px; border: 1px solid transparent; border-radius: 8px; cursor: pointer; background: transparent; color: #94a3b8; font-size: 14px; font-weight: 500; transition: .2s; }
+.tab:hover { background: rgba(255,255,255,.08); color: #e2e8f0; }
+.tab.active { background: var(--amber); color: #0f172a; font-weight: 700; border-color: var(--amber); }
+.tab .emoji { font-size: 16px; margin-right: 4px; }
+
+/* Mini program promo */
+.promo { display: flex; align-items: center; gap: 14px; background: linear-gradient(135deg, #fffbeb, #fef3c7); border: 1px solid #fde68a; border-radius: var(--radius); padding: 12px 18px; margin-bottom: 18px; box-shadow: var(--shadow); flex-wrap: wrap; }
+.promo .p-icon { font-size: 30px; }
+.promo .p-icon-img { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; flex-shrink: 0; box-shadow: 0 0 0 2px rgba(245,158,11,.3); }
+.promo .p-text { flex: 1; min-width: 220px; }
+.promo .p-title { font-size: 15px; font-weight: 700; color: #92400e; }
+.promo .p-tag { background: var(--amber); color: #0f172a; font-size: 11px; font-weight: 700; padding: 2px 8px; border-radius: 20px; margin-left: 6px; vertical-align: 2px; }
+.promo .p-desc { font-size: 13px; color: #a16207; line-height: 1.7; }
+.promo .p-cta { background: var(--heading); color: #fff; border: none; padding: 9px 16px; border-radius: 8px; font-size: 13px; font-weight: 600; cursor: pointer; white-space: nowrap; transition: .2s; }
+.promo .p-cta:hover { background: #1e293b; transform: translateY(-1px); }
+.promo .p-qr { display: flex; flex-direction: column; align-items: center; gap: 4px; background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 8px; }
+.promo .p-qr img { width: 116px; height: 116px; display: block; }
+.promo .p-qr span { font-size: 11px; font-weight: 700; color: var(--amber-dark); white-space: nowrap; }
+.upload-rule { margin-top: 12px; padding: 10px 14px; background: var(--amber-light); border: 1px solid #fde68a; border-left: 4px solid var(--amber); border-radius: 8px; font-size: 13px; line-height: 1.9; color: #92400e; display: none; }
+.upload-rule.show { display: block; }
+.site-footer { text-align: center; color: var(--muted); font-size: 12px; padding: 20px 0 4px; }
+.site-footer b { color: var(--amber-dark); }
+
+/* Main */
+.main { max-width: 1100px; margin: 0 auto; padding: 24px 20px; }
+
+/* Question grid */
+.section-title { font-size: 14px; color: var(--muted); margin-bottom: 12px; font-weight: 500; text-transform: uppercase; letter-spacing: .5px; }
+.question-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; margin-bottom: 28px; }
+.q-card { background: var(--card); border: 2px solid var(--border); border-radius: var(--radius); padding: 20px 16px; cursor: pointer; transition: .2s; text-align: center; position: relative; }
+.q-card:hover { border-color: var(--amber); transform: translateY(-2px); box-shadow: var(--shadow-lg); }
+.q-card.active { border-color: var(--amber); background: var(--amber-light); }
+.q-card .q-num { font-size: 32px; font-weight: 800; color: var(--amber); }
+.q-card .q-label { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.q-card .q-subject { font-size: 10px; color: var(--muted); text-transform: uppercase; margin-top: 2px; }
+
+/* Workspace */
+.workspace { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; min-height: 420px; }
+.panel { background: var(--card); border: 1px solid var(--border); border-radius: var(--radius); padding: 24px; box-shadow: var(--shadow); }
+.panel h3 { color: var(--heading); margin-bottom: 14px; font-size: 16px; display: flex; align-items: center; gap: 8px; }
+.panel h3 .dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.requirements { font-size: 14px; line-height: 2; color: var(--text); padding-left: 20px; }
+.requirements li { margin-bottom: 6px; }
+.requirements li::marker { color: var(--amber); font-weight: 700; }
+
+/* Upload zone */
+.upload-zone { border: 2px dashed var(--border); border-radius: 10px; padding: 36px 20px; text-align: center; cursor: pointer; transition: .2s; margin: 16px 0; background: var(--bg); }
+.upload-zone:hover { border-color: var(--amber); background: var(--amber-light); }
+.upload-zone input { display: none; }
+.upload-icon { font-size: 36px; margin-bottom: 8px; }
+.upload-text { font-size: 14px; color: var(--text); }
+.upload-hint { font-size: 12px; color: var(--muted); margin-top: 4px; }
+.upload-selected { color: var(--green) !important; font-weight: 500; }
+
+/* Buttons */
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 10px 22px; border: none; border-radius: 8px; font-size: 14px; cursor: pointer; transition: .2s; font-weight: 600; }
+.btn:disabled { opacity: .5; cursor: not-allowed; }
+.btn-primary { background: var(--amber); color: #0f172a; }
+.btn-primary:hover:not(:disabled) { background: var(--amber-dark); }
+.btn-outline { background: transparent; color: var(--text); border: 1.5px solid var(--border); }
+.btn-outline:hover { border-color: var(--amber); color: var(--amber-dark); }
+.btn-download { background: var(--blue); color: #fff; }
+.btn-download:hover { opacity: .9; }
+.btn-group { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+
+/* Result panel */
+.result { margin-top: 20px; padding: 20px; border-radius: 10px; background: var(--bg); border: 1px solid var(--border); }
+.result .score-row { display: flex; align-items: center; gap: 24px; margin-bottom: 18px; }
+.score-big { font-size: 64px; font-weight: 800; line-height: 1; }
+.score-pass { color: var(--green); }
+.score-fail { color: var(--red); }
+.score-meta { font-size: 14px; }
+.score-meta .verdict { font-size: 18px; font-weight: 600; margin-top: 4px; }
+.verdict-pass { color: var(--green); }
+.verdict-fail { color: var(--red); }
+
+.detail-list { max-height: 400px; overflow-y: auto; font-size: 13px; }
+.detail-row { padding: 5px 10px; margin: 2px 0; border-radius: 4px; display: flex; align-items: flex-start; gap: 8px; }
+.detail-row.pass { background: var(--green-light); color: #065f46; }
+.detail-row.fail { background: var(--red-light); color: #991b1b; }
+.detail-row.info { background: var(--blue-light); color: #1e40af; }
+.detail-row.sub-item { padding-left: 24px; font-size: 12px; background: transparent; }
+.detail-row.sub-item .detail-icon { width: 16px; }
+
+/* Empty state */
+.empty-state { text-align: center; padding: 80px 20px; }
+.empty-state .icon { font-size: 56px; margin-bottom: 16px; }
+.empty-state p { color: var(--muted); font-size: 15px; }
+.empty-state .hint { font-size: 13px; color: var(--muted); margin-top: 8px; }
+
+.hidden { display: none; }
+
+/* Toast */
+.toast { position: fixed; top: 20px; right: 20px; background: var(--card); border: 1px solid var(--border); padding: 14px 24px; border-radius: 10px; z-index: 999; box-shadow: var(--shadow-lg); animation: slideIn .3s; font-size: 14px; }
+.toast.error { border-left: 4px solid var(--red); }
+.toast.success { border-left: 4px solid var(--green); }
+@keyframes slideIn { from { transform: translateX(100%); opacity: 0; } to { transform: translateX(0); opacity: 1; } }
+
+/* Loading spinner */
+.spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid #e2e8f0; border-top-color: var(--amber); border-radius: 50%; animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+
+/* Subject color */
+.subject-excel { color: var(--green); }
+.subject-word { color: var(--blue); }
+.subject-ppt { color: var(--orange); }
+
+/* Responsive */
+@media (max-width: 768px) {
+  .workspace { grid-template-columns: 1fr; }
+  .question-grid { grid-template-columns: repeat(3, 1fr); }
+  .header { flex-wrap: wrap; height: auto; padding: 12px 16px; gap: 8px; }
+  .header .divider { display: none; }
+}
+
+/* Tooltip */
+.tooltip { font-size: 11px; padding: 2px 8px; border-radius: 4px; display: inline-block; margin-left: 8px; }
+.tooltip-excel { background: var(--green-light); color: #065f46; }
+.tooltip-word { background: var(--blue-light); color: #1e40af; }
+.tooltip-ppt { background: var(--orange-light); color: #9a3412; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="logo">
+    <img src="/static/logo.png" class="icon-img" alt="小狮子">
+    <h1>小狮子 Office 2010 操作题考试</h1>
+  </div>
+  <div class="divider"></div>
+  <div class="subject-tabs" id="subjectTabs">
+    <button class="tab active" data-subject="excel"><span class="emoji">📊</span>Excel 操作题</button>
+    <button class="tab" data-subject="word"><span class="emoji">📝</span>Word 操作题</button>
+    <button class="tab" data-subject="ppt"><span class="emoji">🎨</span>PPT 操作题</button>
+    <button class="tab" data-subject="dw"><span class="emoji">🌐</span>网页操作题</button>
+  </div>
+</div>
+
+<div class="main">
+  <!-- 小程序推广 -->
+  <div class="promo">
+    <img src="/static/logo.png" class="p-icon-img" alt="小狮子">
+    <div class="p-text">
+      <div class="p-title">小狮子对口刷题<span class="p-tag">微信小程序</span></div>
+      <div class="p-desc">电脑练操作，手机刷理论——语数英与专业课真题随时刷，错题本、考纲掌握度分析自动生成。</div>
+    </div>
+    <div class="p-qr">
+      <img src="/static/wxacode.jpg" alt="小狮子对口刷题小程序码">
+      <span>微信扫码 · 刷题</span>
+    </div>
+  </div>
+
+  <!-- Subject indicator -->
+  <div class="section-title" id="sectionLabel">📊 Excel 2010 操作题 — 选择题目开始作答</div>
+
+  <!-- Question selector -->
+  <div class="question-grid" id="questionGrid"></div>
+
+  <!-- Workspace -->
+  <div class="workspace hidden" id="workspace">
+    <!-- Left: Requirements -->
+    <div class="panel">
+      <h3><span class="dot" id="dotColor" style="background:var(--amber)"></span> 题目要求</h3>
+      <ol class="requirements" id="requirements"></ol>
+      <div class="btn-group">
+        <button class="btn btn-download" onclick="downloadMaterial()">⬇️ 下载素材文件</button>
+      </div>
+    </div>
+
+    <!-- Right: Upload & Grade -->
+    <div class="panel">
+      <h3><span class="dot" style="background:var(--blue)"></span> 上传作答 & 评分</h3>
+      <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()">
+        <div class="upload-icon">📁</div>
+        <div class="upload-text" id="uploadText">点击此处上传已完成的操作文件</div>
+        <div class="upload-hint" id="uploadHint">支持 .xlsx / .docx / .pptx / .zip 格式</div>
+        <input type="file" id="fileInput" onchange="handleUpload(this)" accept=".xlsx,.docx,.pptx,.zip">
+      </div>
+      <div class="upload-rule" id="uploadRule"></div>
+      <div class="btn-group">
+        <button class="btn btn-primary" onclick="startGrade()" id="gradeBtn" disabled>🔍 开始判分</button>
+        <button class="btn btn-outline" onclick="resetAll()">🔄 重新作答</button>
+      </div>
+
+      <div class="result hidden" id="resultPanel">
+        <div class="score-row">
+          <span class="score-big" id="scoreBig">--</span>
+          <div class="score-meta">
+            <div style="color:var(--muted);font-size:12px">得分 / 100</div>
+            <div class="verdict" id="scoreVerdict"></div>
+          </div>
+        </div>
+        <div class="detail-list" id="detailList"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Empty state -->
+  <div class="empty-state" id="emptyState">
+    <div style="margin-bottom:16px"><img src="/static/logo.png" style="width:96px;height:96px;border-radius:50%;box-shadow:0 4px 20px rgba(245,158,11,.25);"></div>
+    <p>请在上方选择一道操作题开始练习</p>
+    <p class="hint">支持 Excel 2010 · Word 2010 · PowerPoint 2010 · 网页制作 四种题型</p>
+  </div>
+
+  <div class="site-footer">🦁 小狮子系列 · 电脑练操作，手机刷理论 —— 微信小程序「<b>小狮子对口刷题</b>」</div>
+</div>
+
+<script>
+// State
+let currentSubject = 'excel';
+let currentQid = null;
+let uploadedFile = null;
+let questionsData = {};
+
+const subjectMeta = {
+  excel: { label: 'Excel 2010', icon: '📊', dot: 'var(--green)', ext: '.xlsx', mime: 'spreadsheetml.sheet',
+           rule: '上传单个 .xlsx 工作簿文件（直接提交保存好的那份表格，不要压缩、不要改扩展名）。' },
+  word:  { label: 'Word 2010', icon: '📝', dot: 'var(--blue)', ext: '.docx', mime: 'wordprocessingml.document',
+           rule: '上传单个 .docx 文档文件（直接提交保存好的那份文档，不要压缩、不要改扩展名）。' },
+  ppt:   { label: 'PowerPoint 2010', icon: '🎨', dot: 'var(--orange)', ext: '.pptx', mime: 'presentationml.presentation',
+           rule: '上传单个 .pptx 演示文稿文件（直接提交保存好的那份课件，不要压缩、不要改扩展名）。' },
+  dw:    { label: '网页制作', icon: '🌐', dot: 'var(--purple)', ext: '.zip', mime: 'zip',
+           rule: '⚠️ 网页题交法：素材解压后是一个网站文件夹（HTMLMaterial，里面有 index.html 和 Image 文件夹）。做完后选中这个文件夹（或它里面的全部文件）右键压缩成一个 zip 上传，一个 zip 就够。压缩包里必须有 index.html；只压一个 html 文件、或漏掉 Image 文件夹，图片和样式类题目会判 0 分。' }
+};
+
+// Init
+document.addEventListener('DOMContentLoaded', init);
+
+function init() {
+  document.querySelectorAll('.tab').forEach(t => {
+    t.addEventListener('click', () => switchSubject(t.dataset.subject));
+  });
+  fetch('/api/questions').then(r => r.json()).then(data => {
+    questionsData = data;
+    loadQuestionGrid();
+  });
+}
+
+function switchSubject(subject) {
+  currentSubject = subject;
+  currentQid = null;
+  uploadedFile = null;
+  document.querySelectorAll('.tab').forEach(t => t.classList.toggle('active', t.dataset.subject === subject));
+
+  const meta = subjectMeta[subject];
+  document.getElementById('sectionLabel').textContent = meta.icon + ' ' + meta.label + ' 操作题 — 选择题目开始作答';
+  document.getElementById('workspace').classList.add('hidden');
+  document.getElementById('emptyState').classList.remove('hidden');
+  document.getElementById('resultPanel').classList.add('hidden');
+  loadQuestionGrid();
+}
+
+function loadQuestionGrid() {
+  const grid = document.getElementById('questionGrid');
+  const qs = questionsData[currentSubject] || {};
+  const ids = Object.keys(qs).sort((a, b) => a - b);
+  grid.innerHTML = '';
+
+  const meta = subjectMeta[currentSubject];
+  const colors = { excel: 'var(--green-light)', word: 'var(--blue-light)', ppt: 'var(--orange-light)', dw: 'var(--purple-light)' };
+
+  ids.forEach(qid => {
+    const card = document.createElement('div');
+    card.className = 'q-card' + (currentQid === qid ? ' active' : '');
+    card.innerHTML = '<div class="q-num">' + qid + '</div><div class="q-label">题目' + qid + '</div>';
+    card.addEventListener('click', () => selectQuestion(qid));
+    grid.appendChild(card);
+  });
+}
+
+function selectQuestion(qid) {
+  currentQid = qid;
+  uploadedFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('uploadText').textContent = '点击此处上传已完成的操作文件';
+  document.getElementById('uploadText').className = 'upload-text';
+  document.getElementById('gradeBtn').disabled = true;
+  document.getElementById('resultPanel').classList.add('hidden');
+
+  loadQuestionGrid();
+  document.getElementById('emptyState').classList.add('hidden');
+  document.getElementById('workspace').classList.remove('hidden');
+
+  const qs = questionsData[currentSubject] || {};
+  const reqs = qs[qid] || [];
+  document.getElementById('requirements').innerHTML = reqs.map(r => '<li>' + r + '</li>').join('');
+
+  const meta = subjectMeta[currentSubject];
+  document.getElementById('dotColor').style.background = meta.dot;
+  document.getElementById('uploadHint').textContent = '支持 ' + meta.ext + ' 格式';
+  const ruleEl = document.getElementById('uploadRule');
+  if (meta.rule) { ruleEl.textContent = meta.rule; ruleEl.classList.add('show'); }
+  else { ruleEl.textContent = ''; ruleEl.classList.remove('show'); }
+
+  document.getElementById('panelTitle').textContent = meta.icon + ' ' + meta.label + ' · 题目' + qid + ' 要求';
+}
+
+function downloadMaterial() {
+  if (!currentQid) return;
+  const a = document.createElement('a');
+  a.href = '/api/download/' + currentSubject + '/' + currentQid;
+  a.download = '';
+  a.style.display = 'none';
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+}
+
+function handleUpload(input) {
+  if (input.files.length > 0) {
+    uploadedFile = input.files[0];
+    document.getElementById('uploadText').textContent = '📄 ' + uploadedFile.name;
+    document.getElementById('uploadText').className = 'upload-text upload-selected';
+    document.getElementById('gradeBtn').disabled = false;
+  }
+}
+
+async function startGrade() {
+  if (!uploadedFile || !currentQid) return;
+
+  const btn = document.getElementById('gradeBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> 判分中...';
+
+  const formData = new FormData();
+  formData.append('file', uploadedFile);
+
+  try {
+    const resp = await fetch('/api/grade/' + currentSubject + '/' + currentQid, { method: 'POST', body: formData });
+    const data = await resp.json();
+
+    if (data.error) {
+      showToast(data.error, 'error');
+    } else {
+      showResult(data);
+    }
+  } catch (e) {
+    showToast('评分请求失败: ' + e.message, 'error');
+  }
+
+  btn.disabled = false;
+  btn.innerHTML = '🔍 开始判分';
+}
+
+function showResult(data) {
+  const panel = document.getElementById('resultPanel');
+  panel.classList.remove('hidden');
+
+  const scoreBig = document.getElementById('scoreBig');
+  scoreBig.textContent = data.score !== null ? data.score.toFixed(1) : '??';
+  scoreBig.className = 'score-big ' + (data.passed ? 'score-pass' : 'score-fail');
+
+  const verdict = document.getElementById('scoreVerdict');
+  verdict.textContent = data.passed ? '🎉 及格！继续加油' : '💪 还需努力，分析一下错在哪里';
+  verdict.className = 'verdict ' + (data.passed ? 'verdict-pass' : 'verdict-fail');
+
+  const detailList = document.getElementById('detailList');
+  if (data.details && data.details.length > 0) {
+    detailList.innerHTML = data.details.map((d) => {
+      // Backend prefixes each line with [pass]/[fail]/[info]
+      let cls = 'info', icon = '';
+      const text = d.replace(/^\[(pass|fail|info)\]/, (_, type) => {
+        if (type === 'pass') { cls = 'pass'; icon = '✓'; }
+        else if (type === 'fail') { cls = 'fail'; icon = '✗'; }
+        else { cls = 'info'; icon = '·'; }
+        return '';
+      });
+      // Indent sub-items (lines starting with spaces)
+      const isSub = text.startsWith('      ') || text.startsWith('       ');
+      return '<div class="detail-row ' + cls + (isSub ? ' sub-item' : '') + '"><span class="detail-icon">' + icon + '</span><span>' + escapeHtml(text) + '</span></div>';
+    }).join('');
+  } else {
+    detailList.innerHTML = '<div class="detail-row info"><span class="detail-icon">·</span>评分完成，共检测到 ' + (data.max_score || 100) + ' 分值的考点</div>';
+  }
+}
+
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
+}
+
+function resetAll() {
+  uploadedFile = null;
+  document.getElementById('fileInput').value = '';
+  document.getElementById('uploadText').textContent = '点击此处上传已完成的操作文件';
+  document.getElementById('uploadText').className = 'upload-text';
+  document.getElementById('gradeBtn').disabled = true;
+  document.getElementById('resultPanel').classList.add('hidden');
+}
+
+function showToast(msg, type) {
+  const toast = document.createElement('div');
+  toast.className = 'toast ' + type;
+  toast.textContent = msg;
+  document.body.appendChild(toast);
+  setTimeout(() => toast.remove(), 3500);
+}
+</script>
+</body>
+</html>

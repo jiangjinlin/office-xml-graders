@@ -1,0 +1,47 @@
+# Office 解压残留 / 调试产物
+_xml_*/
+result_xml/
+answer_xml_temp/
+__pycache__/
+*.pyc
+
+# Office 锁文件与临时报告
+~$*
+report_*.html
+评分报告_*.html
+*.log
+nul
+
+# 判分服务运行时
+student_exam_app/uploads/
+student_exam_app/_release.tar.gz
+
+# 部署配置含服务器信息，只提交示例
+deploy.json
+student_exam_app/deploy.json
+
+# IDE / 工具
+.idea/
+.vscode/
+.workbuddy/
+.codebuddy/
+dist/
+
+# 工作区根目录的个人零散文件
+/11.docx
+/12.docx
+2022年准易：*/1结果 - 副本.zip
+2022年准易：Excel 2010 操作题--素材/1/test.xml
+
+# 按文件名排除散落的临时件
+1结果 - 副本.zip
+test.xml
+
+# 题库目录只保留题目本身（1结果/2素材/3题干/图片）；开发期的评分脚本、
+# 分析笔记、报告一律不入库，正式版本在 student_exam_app/graders/
+/*操作题题库/**/*.py
+/*操作题题库/**/*.txt
+/*操作题题库/**/*.html
+/*操作题题库/**/*.md
+/*技能题库/**/*.py
+/*技能题库/**/*.txt

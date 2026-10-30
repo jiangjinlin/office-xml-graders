@@ -1,0 +1,13 @@
+{
+  "host": "root@你的服务器IP",
+  "ssh_port": "22",
+  "ssh_key": "~/.ssh/id_rsa",
+  "remote_dir": "/www/wwwroot/student_exam_app",
+  "remote_hint": "student_exam_app",
+  "app_port": 5000,
+  "install_deps": false,
+  "pip_cmd": "pip install -q -r requirements.txt",
+  "reload_cmd": "uwsgi --stop /www/wwwroot/student_exam_app/uwsgi.pid 2>/dev/null || true; sleep 2; uwsgi --ini /www/wwwroot/student_exam_app/uwsgi.ini",
+  "health_path": "/api/health",
+  "keep_backups": 5
+}
