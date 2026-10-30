@@ -45,6 +45,51 @@ app.json.ensure_ascii = False
 SLOTS = threading.BoundedSemaphore(MAX_PARALLEL)
 
 # 单 IP 判分频率限制（每分钟），防脚本刷；nginx 层也有一道
+ONLINE_WINDOW = 60          # 最近 60 秒有请求就算在线
+ONLINE_LOCK = threading.Lock()
+ONLINE_SEEN = {}
+TODAY = {'date': '', 'count': 0}
+
+
+def touch_online(ip):
+    if not ip:
+        return
+    now = time.time()
+    with ONLINE_LOCK:
+        ONLINE_SEEN[ip] = now
+        if len(ONLINE_SEEN) > 5000:
+            for key, ts in list(ONLINE_SEEN.items()):
+                if now - ts > ONLINE_WINDOW:
+                    ONLINE_SEEN.pop(key, None)
+
+
+def online_count():
+    now = time.time()
+    with ONLINE_LOCK:
+        for key, ts in list(ONLINE_SEEN.items()):
+            if now - ts > ONLINE_WINDOW:
+                ONLINE_SEEN.pop(key, None)
+        return len(ONLINE_SEEN)
+
+
+def bump_today():
+    today = time.strftime('%Y-%m-%d')
+    with ONLINE_LOCK:
+        if TODAY['date'] != today:
+            TODAY['date'] = today
+            TODAY['count'] = 0
+        TODAY['count'] += 1
+        return TODAY['count']
+
+
+def today_count():
+    today = time.strftime('%Y-%m-%d')
+    with ONLINE_LOCK:
+        if TODAY['date'] != today:
+            return 0
+        return TODAY['count']
+
+
 RATE_LIMIT_PER_MIN = int(os.environ.get('EXAM_RATE_PER_MIN', '60'))
 RATE_LOCK = threading.Lock()
 RATE_BUCKETS = {}
@@ -214,6 +259,17 @@ def security_headers(resp):
     if resp.mimetype in ('application/json', 'text/html'):
         resp.headers.setdefault('Cache-Control', 'no-store')
     return resp
+
+
+@app.before_request
+def _track_online():
+    ip = (request.headers.get('X-Real-IP') or request.remote_addr or '').strip()
+    touch_online(ip)
+
+
+@app.route('/api/online')
+def api_online():
+    return jsonify({'online': online_count(), 'today': today_count()})
 
 
 @app.route('/')
@@ -448,6 +504,7 @@ def grade(subject, qid):
             return jsonify({'error': error_details[0].replace('[info] ', '') if reason != 'timeout' else '评分超时',
                             'details': error_details}), 500
 
+        bump_today()
         score = parse_score(output)
         items = parse_items(output)
         details = build_details(output, items)
