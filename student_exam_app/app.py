@@ -34,7 +34,8 @@ LABELS = {'excel': 'Excel', 'word': 'Word', 'ppt': 'PPT', 'dw': '网页'}
 
 MAX_UPLOAD_MB = int(os.environ.get('EXAM_MAX_UPLOAD_MB', '50'))
 GRADER_TIMEOUT = int(os.environ.get('EXAM_GRADER_TIMEOUT', '90'))
-MAX_PARALLEL = int(os.environ.get('EXAM_MAX_PARALLEL', '2'))
+MAX_PARALLEL = int(os.environ.get('EXAM_MAX_PARALLEL', '4'))
+QUEUE_WAIT = int(os.environ.get('EXAM_QUEUE_WAIT', '15'))
 UPLOAD_TTL_HOURS = int(os.environ.get('EXAM_UPLOAD_TTL', '6'))
 
 app = Flask(__name__, static_folder=STATIC, static_url_path='/static')
@@ -90,7 +91,7 @@ def today_count():
         return TODAY['count']
 
 
-RATE_LIMIT_PER_MIN = int(os.environ.get('EXAM_RATE_PER_MIN', '60'))
+RATE_LIMIT_PER_MIN = int(os.environ.get('EXAM_RATE_PER_MIN', '600'))
 RATE_LOCK = threading.Lock()
 RATE_BUCKETS = {}
 
@@ -477,7 +478,7 @@ def grade(subject, qid):
 
     client_ip = (request.headers.get('X-Real-IP') or request.remote_addr or '').strip()
     if not rate_ok(client_ip):
-        return jsonify({'error': '操作太快了，休息一下再试'}), 429
+        return jsonify({'error': '提交太频繁了，等 10 秒再试'}), 429
 
     upload = request.files.get('file')
     if upload is None or not upload.filename:
@@ -487,8 +488,9 @@ def grade(subject, qid):
     if ext != SUBJECTS[subject]['ext']:
         return jsonify({'error': '请上传 %s 文件，收到 %s' % (SUBJECTS[subject]['ext'], ext or '无扩展名')}), 400
 
-    if not SLOTS.acquire(blocking=False):
-        return jsonify({'error': '当前判分人数较多，请稍后重试'}), 429
+    # 机房几十人同时提交是常态：先排队等待，等不到才拒绝
+    if not SLOTS.acquire(timeout=QUEUE_WAIT):
+        return jsonify({'error': '当前判分的人有点多，请 10 秒后再点一次'}), 429
 
     workdir = tempfile.mkdtemp(prefix='%s_%s_' % (subject, qid), dir=UPLOADS)
     try:
