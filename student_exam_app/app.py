@@ -15,6 +15,7 @@ import zipfile
 import xml.etree.ElementTree as ET
 
 from flask import Flask, jsonify, render_template, request, send_file
+from markupsafe import escape as html_escape
 
 BASE = os.path.dirname(os.path.abspath(__file__))
 MATERIALS = os.path.join(BASE, 'materials')
@@ -299,11 +300,102 @@ def health():
 
 @app.route('/api/questions')
 def api_questions():
+    return jsonify(questions_cached())
+
+
+def questions_cached():
     key = materials_key()
     if QUESTION_CACHE['key'] != key:
         QUESTION_CACHE['data'] = extract_questions()
         QUESTION_CACHE['key'] = key
-    return jsonify(QUESTION_CACHE['data'])
+    return QUESTION_CACHE['data']
+
+
+SITE = 'https://web.xiaoshizi.asia'
+
+
+@app.route('/robots.txt')
+def robots_txt():
+    body = '\n'.join([
+        'User-agent: *',
+        'Allow: /',
+        'Allow: /q/',
+        'Disallow: /api/',
+        'Disallow: /uploads/',
+        '',
+        'Sitemap: %s/sitemap.xml' % SITE,
+        '',
+    ])
+    return app.response_class(body, mimetype='text/plain')
+
+
+@app.route('/baidu_verify_<code>.html')
+def baidu_verify(code):
+    # 百度站长平台的文件验证：文件内容就是那串 code
+    return app.response_class(code, mimetype='text/html')
+
+
+@app.route('/sitemap.xml')
+def sitemap_xml():
+    data = questions_cached()
+    urls = ['%s/' % SITE]
+    for subject in SUBJECTS:
+        for qid in sorted(data.get(subject, {}), key=lambda x: (len(x), x)):
+            urls.append('%s/q/%s/%s' % (SITE, subject, qid))
+    items = ''.join('  <url><loc>%s</loc><changefreq>weekly</changefreq></url>\n' % u for u in urls)
+    xml = ('<?xml version="1.0" encoding="UTF-8"?>\n'
+           '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n%s</urlset>\n' % items)
+    return app.response_class(xml, mimetype='application/xml')
+
+
+@app.route('/q/<subject>/<qid>')
+def question_page(subject, qid):
+    if not valid_subject(subject) or not valid_qid(qid):
+        return '题目不存在', 404
+    data = questions_cached()
+    lines = data.get(subject, {}).get(qid)
+    if not lines:
+        return '题目不存在', 404
+
+    label = LABELS[subject]
+    title = '%s操作题第 %s 套要求 - 小狮子刷题' % (label, qid)
+    desc = ' '.join(lines[1:3])[:110] or ('%s操作题第 %s 套的完整要求与素材下载' % (label, qid))
+    body = ''.join('<li>%s</li>' % html_escape(line) for line in lines)
+    page = '''<!DOCTYPE html>
+<html lang="zh-CN"><head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>{title}</title>
+<meta name="description" content="{desc}">
+<meta name="keywords" content="{label}操作题,操作题,中职,中职计算机,对口升学,职教高考,在线练习,自动评分,小狮子刷题">
+<link rel="canonical" href="{site}/q/{subject}/{qid}">
+<link rel="icon" type="image/png" href="/static/logo.png">
+<style>
+body{{margin:0;background:#0f172a;color:#e2e8f0;font:15px/1.9 -apple-system,"Microsoft YaHei",sans-serif}}
+.wrap{{max-width:820px;margin:0 auto;padding:32px 20px 60px}}
+h1{{font-size:22px;margin:0 0 6px}}
+.sub{{color:#94a3b8;font-size:13px;margin-bottom:22px}}
+ol{{background:#111c33;border:1px solid #1e293b;border-radius:12px;padding:20px 20px 20px 40px}}
+li{{margin:10px 0}}
+.btns{{margin-top:24px;display:flex;gap:12px;flex-wrap:wrap}}
+a.btn{{display:inline-block;padding:10px 18px;border-radius:10px;text-decoration:none;font-size:14px}}
+.p{{background:#f59e0b;color:#1a1205;font-weight:700}}
+.s{{border:1px solid #334155;color:#cbd5e1}}
+footer{{margin-top:36px;color:#64748b;font-size:12px}}
+</style></head><body><div class="wrap">
+<h1>{label}操作题 第 {qid} 套</h1>
+<div class="sub">题型：{label} 操作题 · 满分 100 · 面向中职 / 对口升学 / 职教高考 · 在线提交后自动评分</div>
+<ol>{body}</ol>
+<div class="btns">
+  <a class="btn p" href="/?subject={subject}&qid={qid}">打开在线练习并交作业</a>
+  <a class="btn s" href="/api/download/{subject}/{qid}">下载素材</a>
+  <a class="btn s" href="/">返回题库首页</a>
+</div>
+<footer>小狮子刷题 · 中职计算机操作题在线练习与自动评分 · {site}</footer>
+</div></body></html>'''.format(title=title, desc=html_escape(desc), label=label, site=SITE,
+                              subject=subject, qid=qid, body=body)
+    return app.response_class(page, mimetype='text/html')
+
 
 
 @app.route('/api/download/<subject>/<qid>')

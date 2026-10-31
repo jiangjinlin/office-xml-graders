@@ -3,7 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>小狮子 Office 2010 操作题考试系统</title>
+<title>小狮子刷题 · 中职对口升学/职教高考 Office 操作题在线练习与自动评分</title>
+<meta name="description" content="面向中职、对口升学、职教高考的 Office 2010 操作题在线练习：Excel、Word、PPT、网页制作共 40 套题，下载素材、做完上传，系统按文档底层格式逐项打分，标准答案 100 分、未作答 0 分。">
+<meta name="keywords" content="操作题,Office 2010,Excel 操作题,Word 操作题,PPT 操作题,网页制作,中职,中职计算机,对口升学,职教高考,在线练习,自动评分,小狮子刷题">
+<meta property="og:title" content="小狮子刷题 · Office 2010 操作题在线练习与自动评分">
+<meta property="og:description" content="40 套操作题在线练习，上传作业自动判分，逐项给出得分点。">
+<meta property="og:type" content="website">
+<link rel="canonical" href="https://web.xiaoshizi.asia/">
 <link rel="icon" type="image/png" href="/static/logo.png">
 <style>
 :root {
@@ -275,6 +281,13 @@ function init() {
   fetch('/api/questions').then(r => r.json()).then(data => {
     questionsData = data;
     loadQuestionGrid();
+    const params = new URLSearchParams(location.search);
+    const sub = params.get('subject');
+    const qid = params.get('qid');
+    if (sub && subjectMeta[sub]) {
+      switchSubject(sub);
+      if (qid) selectQuestion(qid);
+    }
   });
 }
 
