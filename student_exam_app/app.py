@@ -417,7 +417,8 @@ footer{{margin-top:36px;color:#64748b;font-size:12px}}
   <a class="btn s" href="/">返回题库首页</a>
 </div>
 {related}
-<footer>小狮子刷题 · 中职计算机操作题在线练习与自动评分 · {site}</footer>
+<footer>小狮子刷题 · 中职计算机操作题在线练习与自动评分 · {site}<br>
+<a href="https://beian.miit.gov.cn/" target="_blank" rel="noopener" style="color:#64748b">蜀ICP备2026015465号-2</a></footer>
 </div></body></html>'''.format(title=title, desc=html_escape(desc), label=label, site=SITE,
                               subject=subject, qid=qid, body=body, related=related_html)
     return app.response_class(page, mimetype='text/html')
