@@ -331,7 +331,12 @@ def robots_txt():
 
 @app.route('/baidu_verify_<code>.html')
 def baidu_verify(code):
-    # 百度站长平台的文件验证：文件内容就是那串 code
+    # 站长平台的文件验证：优先返回 verify/ 下同名文件的内容，
+    # 没有再回退成文件名里的 code（有些平台验证值就是 code 本身）
+    path = os.path.join(BASE, 'verify', 'baidu_verify_%s.html' % code)
+    if os.path.exists(path):
+        with open(path, encoding='utf-8') as f:
+            return app.response_class(f.read().strip(), mimetype='text/html')
     return app.response_class(code, mimetype='text/html')
 
 
