@@ -329,6 +329,17 @@ def robots_txt():
     return app.response_class(body, mimetype='text/plain')
 
 
+@app.route('/<name>')
+def verify_file(name):
+    # 根目录的验证文件（BingSiteAuth.xml、googleXXXX.html 等）放进 verify/ 即可
+    if '/' in name or name.startswith('.'):
+        return 'Not Found', 404
+    path = os.path.join(BASE, 'verify', name)
+    if os.path.isfile(path):
+        return send_file(path)
+    return 'Not Found', 404
+
+
 @app.route('/baidu_verify_<code>.html')
 def baidu_verify(code):
     # 站长平台的文件验证：优先返回 verify/ 下同名文件的内容，
