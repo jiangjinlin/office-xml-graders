@@ -366,6 +366,20 @@ def question_page(subject, qid):
     title = '%s操作题第 %s 套要求 - 小狮子刷题' % (label, qid)
     desc = ' '.join(lines[1:3])[:110] or ('%s操作题第 %s 套的完整要求与素材下载' % (label, qid))
     body = ''.join('<li>%s</li>' % html_escape(line) for line in lines)
+
+    def chips(sub):
+        items = []
+        for q in sorted(data.get(sub, {}), key=lambda x: (len(x), x)):
+            cur = ' class="cur"' if (sub == subject and q == qid) else ''
+            items.append('<a%s href="/q/%s/%s">第 %s 套</a>' % (cur, sub, q, q))
+        return ''.join(items)
+
+    related = ['<h2>同科目其他套题</h2><div class="chips">%s</div>' % chips(subject)]
+    for sub in SUBJECTS:
+        if sub == subject or not data.get(sub):
+            continue
+        related.append('<h2>%s操作题</h2><div class="chips">%s</div>' % (LABELS[sub], chips(sub)))
+    related_html = '<section class="related">%s</section>' % ''.join(related)
     page = '''<!DOCTYPE html>
 <html lang="zh-CN"><head>
 <meta charset="utf-8">
@@ -387,6 +401,12 @@ a.btn{{display:inline-block;padding:10px 18px;border-radius:10px;text-decoration
 .p{{background:#f59e0b;color:#1a1205;font-weight:700}}
 .s{{border:1px solid #334155;color:#cbd5e1}}
 footer{{margin-top:36px;color:#64748b;font-size:12px}}
+.related{{margin-top:34px;border-top:1px solid #1e293b;padding-top:22px}}
+.related h2{{font-size:14px;color:#94a3b8;font-weight:600;margin:18px 0 10px}}
+.chips{{display:flex;flex-wrap:wrap;gap:8px}}
+.chips a{{padding:6px 12px;border-radius:8px;border:1px solid #334155;color:#cbd5e1;text-decoration:none;font-size:13px}}
+.chips a:hover{{border-color:#f59e0b;color:#f59e0b}}
+.chips a.cur{{background:#f59e0b;color:#1a1205;border-color:#f59e0b;font-weight:600}}
 </style></head><body><div class="wrap">
 <h1>{label}操作题 第 {qid} 套</h1>
 <div class="sub">题型：{label} 操作题 · 满分 100 · 面向中职 / 对口升学 / 职教高考 · 在线提交后自动评分</div>
@@ -396,9 +416,10 @@ footer{{margin-top:36px;color:#64748b;font-size:12px}}
   <a class="btn s" href="/api/download/{subject}/{qid}">下载素材</a>
   <a class="btn s" href="/">返回题库首页</a>
 </div>
+{related}
 <footer>小狮子刷题 · 中职计算机操作题在线练习与自动评分 · {site}</footer>
 </div></body></html>'''.format(title=title, desc=html_escape(desc), label=label, site=SITE,
-                              subject=subject, qid=qid, body=body)
+                              subject=subject, qid=qid, body=body, related=related_html)
     return app.response_class(page, mimetype='text/html')
 
 
