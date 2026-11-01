@@ -1,0 +1,120 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>模拟考试登录练习</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; font-family: "Microsoft YaHei", "PingFang SC", sans-serif;
+    background: linear-gradient(180deg, #1b7ec4 0%, #2b96d6 42%, #63b8e6 78%, #a8d8f0 100%);
+    overflow: hidden;
+  }
+  /* 云朵：用径向渐变堆出来，不引外部图片 */
+  .cloud { position: absolute; background: #fff; border-radius: 50%; opacity: .85; filter: blur(.5px); }
+  .c1 { width: 220px; height: 120px; left: 4%; top: 22%; box-shadow: 60px 10px 0 -12px #fff, 130px -8px 0 -22px #fff; }
+  .c2 { width: 300px; height: 150px; right: 3%; top: 12%; opacity: .7; box-shadow: -80px 14px 0 -26px #fff; }
+  .c3 { width: 260px; height: 130px; left: 12%; bottom: 6%; opacity: .75; box-shadow: 90px 12px 0 -16px #fff; }
+  .c4 { width: 340px; height: 160px; right: 8%; bottom: 2%; opacity: .8; box-shadow: -110px 10px 0 -30px #fff; }
+  .c5 { width: 180px; height: 92px; left: 46%; top: 6%; opacity: .55; }
+
+  .stage { position: relative; z-index: 2; max-width: 900px; margin: 0 auto; padding-top: 76px; }
+  h1 {
+    margin: 0 0 46px; text-align: center; color: #fff; font-size: 34px; letter-spacing: 2px;
+    text-shadow: 0 2px 6px rgba(0, 60, 110, .45); font-weight: 700;
+  }
+  .form { width: 700px; margin: 0 auto; }
+  .row { display: flex; align-items: center; margin-bottom: 18px; }
+  .row label {
+    width: 150px; text-align: justify; text-align-last: justify; color: #fff;
+    font-size: 20px; letter-spacing: 2px; text-shadow: 0 1px 4px rgba(0,50,100,.4);
+  }
+  .row input {
+    flex: 1; height: 40px; border: 1px solid #b7c4cf; border-radius: 3px;
+    padding: 0 10px; font-size: 16px; outline: none; background: #fff;
+  }
+  .row input:focus { border-color: #f0a500; box-shadow: 0 0 0 2px rgba(240,165,0,.35); }
+  .btn-wrap { text-align: center; margin-top: 26px; }
+  button {
+    width: 200px; height: 46px; border: none; border-radius: 6px; cursor: pointer;
+    font-size: 22px; font-weight: 700; color: #fff; letter-spacing: 4px;
+    background: linear-gradient(180deg, #ff6a3d 0%, #e8401c 100%);
+    box-shadow: 0 3px 0 #a92c10, 0 6px 14px rgba(0,0,0,.25);
+  }
+  button:active { transform: translateY(2px); box-shadow: 0 1px 0 #a92c10; }
+
+  .tips {
+    width: 700px; margin: 30px auto 0; padding: 14px 16px; border-radius: 8px;
+    background: rgba(255,255,255,.16); color: #eaf6ff; font-size: 13px; line-height: 1.9;
+    border: 1px solid rgba(255,255,255,.28); backdrop-filter: blur(2px);
+  }
+  .tips b { color: #fff3cd; }
+  .msg { width: 700px; margin: 16px auto 0; font-size: 14px; color: #ffe8a3; min-height: 20px; text-align: center; }
+  .foot { position: relative; z-index: 2; text-align: center; color: rgba(255,255,255,.75); font-size: 12px; padding: 26px 0 18px; }
+  .foot a { color: #fff; }
+  @media (max-width: 760px) {
+    .form, .tips, .msg { width: auto; margin-left: 18px; margin-right: 18px; }
+    .row label { width: 92px; font-size: 16px; }
+    h1 { font-size: 24px; padding: 0 16px; }
+  }
+</style>
+</head>
+<body>
+  <div class="cloud c1"></div><div class="cloud c2"></div><div class="cloud c3"></div>
+  <div class="cloud c4"></div><div class="cloud c5"></div>
+
+  <div class="stage">
+    <h1>模拟考试登录练习</h1>
+    <div class="form">
+      <div class="row"><label>准考证号</label><input id="fexid" autocomplete="off" placeholder="模拟考试请在准考证号后加 MN"></div>
+      <div class="row"><label>密　码</label><input id="fpass" type="password" autocomplete="off" placeholder="模拟考试请在身份证号后加 MN"></div>
+      <div class="btn-wrap"><button id="btn">登 录</button></div>
+      <div class="msg" id="msg"></div>
+    </div>
+
+    <div class="tips">
+      <div><b>模拟考试：</b>准考证号后面加 <b>MN</b>，密码处填身份证号加 <b>MN</b>，字母大写。</div>
+      <div>例：准考证号 900190231 → <b>900190231MN</b>；身份证 5322010219990619572X → <b>5322010219990619572XMN</b></div>
+      <div><b>正式考试：</b>正常输入准考证号和身份证号，不加 MN，另需填自动生成的验证码。</div>
+      <div style="margin-top:6px;color:#cfe8ff">这是登录流程练习页，不连接任何真实考试系统，输入内容不会发往服务器、也不会被保存。练完请到 <a href="/" style="color:#fff3cd">在线练习</a> 做题。</div>
+    </div>
+  </div>
+
+  <div class="foot">流程练习 · 与真实考试系统无关</div>
+
+<script>
+const exid = document.getElementById('fexid');
+const pass = document.getElementById('fpass');
+const btn = document.getElementById('btn');
+const msg = document.getElementById('msg');
+
+// 只做格式校验，不发送、不存储
+document.querySelectorAll('.row input').forEach(function (el) {
+  el.addEventListener('input', function () {
+    el.value = el.value.toUpperCase();
+  });
+});
+
+btn.addEventListener('click', function () {
+  const a = exid.value.trim();
+  const b = pass.value.trim();
+  if (!a) { msg.textContent = '请输入准考证号'; exid.focus(); return; }
+  if (!b) { msg.textContent = '请输入密码'; pass.focus(); return; }
+  if (!/^\d{6,15}(MN)?$/.test(a)) {
+    msg.textContent = '准考证号格式不对：模拟考试应为「数字 + MN」';
+    exid.focus(); return;
+  }
+  if (!/^\d{17}[\dX](MN)?$/.test(b)) {
+    msg.textContent = '密码格式不对：应为 18 位身份证号（末位可为 X），模拟考试再加 MN';
+    pass.focus(); return;
+  }
+  const mock = a.endsWith('MN') === b.endsWith('MN');
+  if (!mock) { msg.textContent = '准考证号和密码的 MN 状态不一致：模拟考试两个都要加，正式考试两个都不加'; return; }
+  msg.style.color = '#b9f6ca';
+  msg.textContent = (a.endsWith('MN') ? '模拟考试' : '正式考试') + '格式校验通过，登录流程练习完成。正在跳转到练习页…';
+  setTimeout(function () { location.href = '/'; }, 1200);
+});
+</script>
+</body>
+</html>
