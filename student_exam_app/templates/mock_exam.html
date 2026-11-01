@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>模拟考试系统 · 经济管理类专业技能</title>
+<style>
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Microsoft YaHei", sans-serif; background: #eef2f6; color: #1e293b; font-size: 14px; }
+  .topbar {
+    height: 52px; background: #1b4f8a; color: #fff; display: flex; align-items: center;
+    padding: 0 16px; gap: 18px; position: sticky; top: 0; z-index: 50;
+  }
+  .topbar .sys { font-weight: 700; font-size: 15px; letter-spacing: 1px; }
+  .topbar .who { margin-left: auto; font-size: 13px; color: #d6e6f7; }
+  .topbar .clock { font-family: Consolas, monospace; font-size: 15px; background: rgba(255,255,255,.14); padding: 4px 10px; border-radius: 4px; }
+  .topbar button {
+    border: 1px solid rgba(255,255,255,.45); background: transparent; color: #fff;
+    padding: 5px 12px; border-radius: 4px; cursor: pointer; font-size: 13px;
+  }
+  .topbar button.primary { background: #e8401c; border-color: #e8401c; font-weight: 700; }
+
+  .layout { display: flex; height: calc(100vh - 52px); }
+  .tree { width: 226px; background: #fff; border-right: 1px solid #d7dee7; overflow-y: auto; flex-shrink: 0; }
+  .tree .grp { border-bottom: 1px solid #edf1f5; }
+  .tree .grp > .head {
+    padding: 11px 12px; cursor: pointer; display: flex; align-items: center; gap: 6px;
+    font-weight: 600; color: #1b4f8a; background: #f7f9fc;
+  }
+  .tree .grp > .head .arrow { width: 12px; display: inline-block; transition: transform .15s; }
+  .tree .grp.open > .head .arrow { transform: rotate(90deg); }
+  .tree .items { display: none; padding: 4px 0 8px; }
+  .tree .grp.open .items { display: block; }
+  .tree .item { padding: 8px 12px 8px 34px; cursor: pointer; color: #334155; font-size: 13px; }
+  .tree .item:hover { background: #eef6ff; }
+  .tree .item.active { background: #dcecff; color: #1b4f8a; font-weight: 600; border-right: 3px solid #1b4f8a; }
+
+  .main { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .toolbar {
+    background: #fff; border-bottom: 1px solid #d7dee7; padding: 8px 12px;
+    display: flex; gap: 8px; flex-wrap: wrap; align-items: center;
+  }
+  .toolbar button {
+    border: 1px solid #c8d3df; background: #f8fafc; color: #23405e; padding: 5px 11px;
+    border-radius: 4px; cursor: pointer; font-size: 13px;
+  }
+  .toolbar button:hover { background: #eaf3ff; border-color: #8fb6de; }
+  .toolbar button.on { background: #1b4f8a; color: #fff; border-color: #1b4f8a; }
+  .toolbar .sp { width: 1px; height: 20px; background: #dde5ee; margin: 0 4px; }
+
+  .paper { flex: 1; overflow: auto; padding: 18px 22px 120px; }
+  .qhead { font-size: 16px; font-weight: 700; color: #12395f; margin-bottom: 10px; }
+  .qbody { background: #fff; border: 1px solid #dde5ee; border-radius: 6px; padding: 14px 16px; margin-bottom: 14px; line-height: 1.9; }
+  .qbody b { color: #b45309; }
+
+  table.doc { width: 100%; border-collapse: collapse; background: #fff; }
+  table.doc th, table.doc td { border: 1px solid #b9c6d4; padding: 6px 8px; font-size: 13px; height: 32px; }
+  table.doc th { background: #eef3f9; font-weight: 600; color: #23405e; }
+  table.doc td input {
+    width: 100%; border: none; outline: none; background: transparent; font-size: 13px;
+    font-family: inherit; color: inherit;
+  }
+  table.doc td input:focus { background: #fffbe6; }
+  table.doc td.red input, table.doc td.red { color: #d10f0f; }
+  table.doc td.money { text-align: right; }
+  table.doc .stamp {
+    display: inline-block; border: 2px solid #d10f0f; color: #d10f0f; border-radius: 50%;
+    padding: 2px 8px; font-size: 11px; transform: rotate(-12deg); opacity: .85;
+  }
+  table.doc td.underlined { border-bottom: 2px solid #1e293b; }
+
+  .modal-mask { position: fixed; inset: 0; background: rgba(15,23,42,.45); display: none; align-items: center; justify-content: center; z-index: 100; }
+  .modal-mask.show { display: flex; }
+  .modal { background: #fff; border-radius: 8px; width: 420px; max-width: 92vw; padding: 18px 20px; box-shadow: 0 20px 50px rgba(0,0,0,.3); }
+  .modal h3 { margin: 0 0 12px; font-size: 15px; color: #12395f; }
+  .modal .row { margin-bottom: 10px; line-height: 1.8; }
+  .modal .kv { color: #475569; }
+  .modal .kv b { color: #1e293b; }
+  .modal .close { margin-top: 8px; text-align: right; }
+  .calc { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .calc button { padding: 10px 0; font-size: 15px; }
+  .calc .screen { grid-column: 1 / -1; height: 42px; border: 1px solid #cbd5e1; border-radius: 4px; text-align: right; padding: 8px 10px; font-size: 18px; font-family: Consolas, monospace; }
+
+  .toast {
+    position: fixed; left: 50%; bottom: 40px; transform: translateX(-50%) translateY(20px);
+    background: rgba(15,23,42,.9); color: #fff; padding: 10px 18px; border-radius: 6px;
+    font-size: 13px; opacity: 0; transition: .25s; z-index: 200; pointer-events: none;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+
+  .footer-bar {
+    position: fixed; left: 0; right: 0; bottom: 0; height: 46px; background: #fff;
+    border-top: 1px solid #d7dee7; display: flex; align-items: center; gap: 12px;
+    padding: 0 16px; font-size: 13px; color: #64748b; z-index: 40;
+  }
+  .footer-bar .done { color: #1b4f8a; font-weight: 600; }
+  .footer-bar button { margin-left: auto; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="sys">模拟考试系统 · 经济管理类专业技能</span>
+  <span class="who">考生：900190231（模拟）</span>
+  <span class="clock" id="clock">30:00</span>
+  <button onclick="saveAll()">保存试题</button>
+  <button class="primary" onclick="confirmSubmit()">交卷</button>
+</div>
+
+<div class="layout">
+  <div class="tree" id="tree"></div>
+  <div class="main">
+    <div class="toolbar">
+      <button onclick="showInfo()">企业基本信息</button>
+      <button onclick="showBg()">背景单据</button>
+      <span class="sp"></span>
+      <button id="btnLine" onclick="toggleMode('line')">划线</button>
+      <button id="btnStamp" onclick="showStamps()">盖章</button>
+      <button onclick="insertYen()">￥</button>
+      <button id="btnRed" onclick="toggleRed()">红字</button>
+      <span class="sp"></span>
+      <button onclick="showCalc()">计算器</button>
+      <button onclick="saveAll()">保存试题</button>
+    </div>
+    <div class="paper" id="paper"></div>
+  </div>
+</div>
+
+<div class="footer-bar">
+  <span>已保存：<span class="done" id="savedCount">0</span> / 4 题</span>
+  <span id="hint">提示：点左侧题号切换题目；划线/盖章需先点工具按钮再点单据单元格。</span>
+  <button onclick="clearAll()" style="border:1px solid #c8d3df;background:#f8fafc;padding:5px 10px;border-radius:4px;cursor:pointer">清空作答</button>
+</div>
+
+<div class="modal-mask" id="mask" onclick="if(event.target===this)closeModal()">
+  <div class="modal" id="modal"></div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ---------------- 题目数据（示例，可按真实试卷替换） ---------------- */
+const QUESTIONS = {
+  'h1': {
+    grp: '手工会计实务', title: '第 1 题　填制记账凭证（示例）', kind: 'voucher',
+    body: '2026 年 3 月 5 日，向 <b>昆明百盛商贸有限公司</b> 购入 A 材料一批，取得增值税专用发票，' +
+          '价款 20 000.00 元，增值税税额 2 600.00 元，款项以银行存款支付，材料已验收入库。' +
+          '<br>要求：根据业务内容填制记账凭证（借贷方向、科目、金额），完成后点击“保存试题”。',
+    rows: [
+      ['', '材料采购', '20000.00', ''],
+      ['', '应交税费—应交增值税（进项税额）', '2600.00', ''],
+      ['', '银行存款', '', '22600.00']
+    ]
+  },
+  'h2': {
+    grp: '手工会计实务', title: '第 2 题　登记银行存款日记账（示例）', kind: 'book',
+    body: '根据下列业务登记三栏式银行存款日记账：3 月 1 日收到货款 15 000.00 元；' +
+          '3 月 3 日支付办公费 800.00 元。<br>要求：填入摘要与借贷金额，结出余额（期初余额 52 000.00 元）。',
+    rows: [
+      ['3-01', '收到货款', '15000.00', '', '67000.00'],
+      ['3-03', '支付办公费', '', '800.00', '66200.00']
+    ]
+  },
+  'e1': {
+    grp: '会计电算化实操', title: '第 1 题　系统管理登录（示例）', kind: 'erp',
+    body: '要求：以企业背景资料中的 <b>账套主管</b> 身份登录“系统管理”，进入账套后增加操作员“张出纳”并授予“出纳”权限。' +
+          '<br>答题路径：选择操作员 → 选择“系统管理” → 登录 → 权限 → 操作员 → 增加 → 授权。',
+    steps: ['选择操作员（账套主管）', '选择“系统管理”并登录', '权限 → 操作员 → 增加', '勾选“出纳”权限并保存']
+  },
+  'e2': {
+    grp: '会计电算化实操', title: '第 2 题　填制并审核凭证（示例）', kind: 'erp',
+    body: '要求：以 <b>会计</b> 身份登录“信息门户”，填制 3 月 5 日采购材料凭证，再以 <b>账套主管</b> 身份审核并记账。' +
+          '<br>答题路径：信息门户 → 总账 → 凭证 → 填制凭证 → 保存 → 换操作员 → 审核凭证 → 记账。',
+    steps: ['以“会计”身份登录信息门户', '总账 → 凭证 → 填制凭证', '保存凭证并退出', '换“账套主管”审核凭证', '记账']
+  }
+};
+
+const TREE = [
+  { name: '手工会计实务', items: [['h1', '第 1 题'], ['h2', '第 2 题']] },
+  { name: '会计电算化实操', items: [['e1', '第 1 题'], ['e2', '第 2 题']] }
+];
+
+const STORE_KEY = 'mock_exam_answers_v1';
+let current = 'h1';
+let mode = null;       // 'line' | 'stamp'
+let redOn = false;
+let answers = {};      // { key: { r-c: value } }
+let savedSet = new Set();
+
+/* ---------------- 左侧目录树 ---------------- */
+(function buildTree() {
+  const box = document.getElementById('tree');
+  TREE.forEach(function (g, gi) {
+    const wrap = document.createElement('div');
+    wrap.className = 'grp' + (gi === 0 ? ' open' : '');
+    wrap.innerHTML = '<div class="head"><span class="arrow">▶</span>' + g.name + '</div>';
+    const items = document.createElement('div');
+    items.className = 'items';
+    g.items.forEach(function (it) {
+      const d = document.createElement('div');
+      d.className = 'item';
+      d.dataset.id = it[0];
+      d.textContent = it[1];
+      d.onclick = function () { openQuestion(it[0]); };
+      items.appendChild(d);
+    });
+    wrap.appendChild(items);
+    wrap.querySelector('.head').onclick = function () { wrap.classList.toggle('open'); };
+    box.appendChild(wrap);
+  });
+})();
+
+/* ---------------- 渲染题目 ---------------- */
+function openQuestion(id) {
+  current = id;
+  const q = QUESTIONS[id];
+  document.querySelectorAll('.tree .item').forEach(function (el) {
+    el.classList.toggle('active', el.dataset.id === id);
+  });
+  const paper = document.getElementById('paper');
+  let html = '<div class="qhead">' + q.title + '</div><div class="qbody">' + q.body + '</div>';
+
+  if (q.kind === 'voucher') {
+    html += table(['摘要', '会计科目', '借方金额', '贷方金额'], q.rows, ['', '科目', 'money', 'money'], 'v');
+  } else if (q.kind === 'book') {
+    html += table(['日期', '摘要', '收入', '支出', '余额'], q.rows, ['', '', 'money', 'money', 'money'], 'b');
+  } else {
+    html += '<div class="qbody" style="background:#f7fbff;border-style:dashed">' +
+            '<b>本题属于电算化操作，本仿真只练“找路径”：</b>按顺序点完下面每一步，系统会记录你的路径。' +
+            '<div id="steps" style="margin-top:8px">' +
+            q.steps.map(function (s, i) {
+              return '<label style="display:block;margin:5px 0;cursor:pointer">' +
+                     '<input type="checkbox" data-step="' + i + '" style="margin-right:6px">' + (i + 1) + '. ' + s + '</label>';
+            }).join('') + '</div></div>';
+  }
+  paper.innerHTML = html;
+  bindInputs();
+  if (q.kind === 'erp') bindSteps();
+}
+
+function table(head, rows, cls, prefix) {
+  let h = '<table class="doc"><thead><tr>' + head.map(function (t) { return '<th>' + t + '</th>'; }).join('') + '</tr></thead><tbody>';
+  rows.forEach(function (r, ri) {
+    h += '<tr>' + r.map(function (c, ci) {
+      return '<td class="' + cls[ci] + '"><input data-k="' + prefix + '-' + ri + '-' + ci + '" value="' + (c || '') + '"></td>';
+    }).join('') + '</tr>';
+  });
+  return h + '</tbody></table><div style="color:#94a3b8;font-size:12px;margin-top:8px">' +
+         '（示例数据，可直接修改；真实考试中金额需自行计算并填写）</div>';
+}
+
+function bindInputs() {
+  document.querySelectorAll('.paper input[data-k]').forEach(function (el) {
+    const k = el.dataset.k;
+    const saved = (answers[current] || {})[k];
+    if (saved !== undefined) el.value = saved;
+    el.oninput = function () {
+      answers[current] = answers[current] || {};
+      answers[current][k] = el.value;
+    };
+    el.onclick = function (ev) {
+      if (mode === 'line') { el.closest('td').classList.toggle('underlined'); ev.preventDefault(); }
+      if (mode === 'stamp') {
+        el.closest('td').innerHTML = '<span class="stamp">' + (window._stampText || '财务专用章') + '</span>';
+        ev.preventDefault();
+      }
+    };
+    if (redOn) el.closest('td').classList.add('red');
+  });
+}
+
+function bindSteps() {
+  document.querySelectorAll('#steps input[data-step]').forEach(function (el) {
+    el.onchange = function () {
+      answers[current] = answers[current] || {};
+      answers[current]['step' + el.dataset.step] = el.checked ? '1' : '';
+    };
+  });
+}
+
+/* ---------------- 工具栏功能 ---------------- */
+function toggleMode(m) {
+  mode = (mode === m) ? null : m;
+  document.getElementById('btnLine').classList.toggle('on', mode === 'line');
+  document.getElementById('btnStamp').classList.toggle('on', mode === 'stamp');
+  toast(mode ? (mode === 'line' ? '划线模式：点单元格完成划线，再点按钮退出' : '盖章模式：点单元格盖章，再点按钮退出') : '已退出工具模式');
+}
+
+function showStamps() {
+  openModal('<h3>选择印章</h3>' +
+    '<div style="display:flex;gap:10px;flex-wrap:wrap">' +
+    ['财务专用章', '现金收讫', '现金付讫', '转账收讫', '银行收讫'].map(function (s) {
+      return '<button style="padding:8px 12px;border:1px solid #c8d3df;background:#f8fafc;border-radius:4px;cursor:pointer" ' +
+             'onclick="pickStamp(\'' + s + '\')">' + s + '</button>';
+    }).join('') + '</div>');
+}
+function pickStamp(s) {
+  closeModal(); mode = 'stamp';
+  document.getElementById('btnStamp').classList.add('on');
+  toast('已选「' + s + '」，点击单据单元格盖章');
+  window._stampText = s;
+}
+
+function insertYen() {
+  const el = document.activeElement;
+  if (el && el.tagName === 'INPUT') {
+    const p = el.selectionStart || 0;
+    el.value = el.value.slice(0, p) + '￥' + el.value.slice(p);
+    el.dispatchEvent(new Event('input'));
+  } else {
+    toast('先点中一个金额单元格，再点 ￥');
+  }
+}
+
+function toggleRed() {
+  redOn = !redOn;
+  document.getElementById('btnRed').classList.toggle('on', redOn);
+  document.querySelectorAll('.paper td').forEach(function (td) { td.classList.toggle('red', redOn); });
+  toast(redOn ? '红字模式已开（继续输入为红字）' : '已切回黑字');
+}
+
+function showInfo() {
+  openModal('<h3>企业基本信息</h3>' +
+    '<div class="row kv">单位名称：<b>昆明云岭商贸有限公司</b></div>' +
+    '<div class="row kv">纳税人识别号：<b>91530100MA6KXXXX7Y</b></div>' +
+    '<div class="row kv">地址电话：<b>昆明市五华区人民中路 123 号　0871-6XXXXXXX</b></div>' +
+    '<div class="row kv">开户行及账号：<b>中国银行昆明分行　6217 **** **** 8832</b></div>' +
+    '<div class="row kv">往来单位：<b>昆明百盛商贸有限公司 / 云南物流集团</b></div>' +
+    '<div class="close"><button onclick="closeModal()">关闭</button></div>');
+}
+
+function showBg() {
+  openModal('<h3>背景单据（示意）</h3>' +
+    '<div style="border:1px dashed #b9c6d4;border-radius:6px;height:180px;display:flex;align-items:center;justify-content:center;color:#94a3b8;background:#fafcff">' +
+    '增值税专用发票（样式占位）</div>' +
+    '<div style="margin-top:10px;color:#64748b;font-size:13px">真实考试里这里会显示扫描单据，可缩放/原始大小查看。</div>' +
+    '<div class="close"><button onclick="closeModal()">关闭</button></div>');
+}
+
+function showCalc() {
+  openModal('<h3>计算器</h3><div class="calc">' +
+    '<div class="screen" id="calcScreen">0</div>' +
+    ['7','8','9','÷','4','5','6','×','1','2','3','-','0','.','=','+'].map(function (k) {
+      return '<button onclick="calcKey(\'' + k + '\')">' + k + '</button>';
+    }).join('') +
+    '<button style="grid-column:1/-1" onclick="calcClear()">清空</button></div>' +
+    '<div class="close"><button onclick="closeModal()">关闭</button></div>');
+  window._calc = '';
+}
+
+function calcKey(k) {
+  const s = document.getElementById('calcScreen');
+  if (k === '=') {
+    try {
+      const expr = window._calc.replace(/×/g, '*').replace(/÷/g, '/');
+      const v = Function('return (' + expr + ')')();
+      s.textContent = String(Math.round(v * 100) / 100);
+      window._calc = String(v);
+      return;
+    } catch (e) { s.textContent = '错误'; window._calc = ''; return; }
+  }
+  window._calc += k;
+  s.textContent = window._calc;
+}
+function calcClear() { window._calc = ''; document.getElementById('calcScreen').textContent = '0'; }
+
+/* ---------------- 保存 / 交卷 ---------------- */
+function saveAll() {
+  localStorage.setItem(STORE_KEY, JSON.stringify(answers));
+  savedSet.add(current);
+  document.getElementById('savedCount').textContent = savedSet.size;
+  toast('已保存当前题目（本地），真实考试需逐题点“保存试题”');
+}
+
+function clearAll() {
+  if (!confirm('清空本机保存的作答内容？')) return;
+  answers = {}; savedSet.clear(); localStorage.removeItem(STORE_KEY);
+  document.getElementById('savedCount').textContent = '0';
+  openQuestion(current);
+  toast('已清空');
+}
+
+function confirmSubmit() {
+  openModal('<h3>确认交卷</h3>' +
+    '<div class="row">已保存 <b>' + savedSet.size + '</b> / 4 题。交卷后不能再修改。</div>' +
+    '<div class="row" style="color:#b45309">这是仿真环境，不会上传任何内容，也不会产生成绩。</div>' +
+    '<div class="close"><button onclick="closeModal()">再检查一下</button> ' +
+    '<button style="margin-left:8px;background:#e8401c;color:#fff;border:none;padding:6px 14px;border-radius:4px;cursor:pointer" onclick="doSubmit()">确定交卷</button></div>');
+}
+
+function doSubmit() {
+  closeModal();
+  document.getElementById('paper').innerHTML =
+    '<div style="text-align:center;padding:80px 20px">' +
+    '<div style="font-size:22px;color:#1b4f8a;font-weight:700;margin-bottom:12px">交卷成功</div>' +
+    '<div style="color:#64748b;line-height:2">本次为流程仿真，未上传作答内容。<br>' +
+    '真实考试中此时页面会锁定，由监考确认后离场。</div>' +
+    '<div style="margin-top:24px"><a href="/" style="color:#1b4f8a">回到在线练习判分</a> ｜ ' +
+    '<a href="/mock/login" style="color:#1b4f8a">重新走一遍登录流程</a></div></div>';
+  clearInterval(window._timer);
+}
+
+/* ---------------- 倒计时 ---------------- */
+(function timer() {
+  let left = 30 * 60;
+  window._timer = setInterval(function () {
+    if (left <= 0) { clearInterval(window._timer); return; }
+    left--;
+    const m = String(Math.floor(left / 60)).padStart(2, '0');
+    const s = String(left % 60).padStart(2, '0');
+    document.getElementById('clock').textContent = m + ':' + s;
+  }, 1000);
+})();
+
+/* ---------------- 弹窗 / toast ---------------- */
+function openModal(html) {
+  document.getElementById('modal').innerHTML = html;
+  document.getElementById('mask').classList.add('show');
+}
+function closeModal() { document.getElementById('mask').classList.remove('show'); }
+
+let toastTimer = null;
+function toast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.classList.add('show');
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(function () { t.classList.remove('show'); }, 2200);
+}
+
+/* 启动 */
+openQuestion('h1');
+document.querySelector('.tree .item').classList.add('active');
+</script>
+</body>
+</html>

@@ -369,6 +369,11 @@ def mock_login():
     return render_template('mock_login.html')
 
 
+@app.route('/mock/exam')
+def mock_exam():
+    return render_template('mock_exam.html')
+
+
 @app.route('/q/<subject>/<qid>')
 def question_page(subject, qid):
     if not valid_subject(subject) or not valid_qid(qid):
